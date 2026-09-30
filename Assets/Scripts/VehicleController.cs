@@ -78,31 +78,48 @@ public class VehicleController : MonoBehaviour
     private float vehicleHalfWidth = 0.8f;
     private bool boundsCalculated = false;
 
+    // Mutex de frame: solo UN sistema de seam-assist puede aplicar fuerza por FixedUpdate.
+    // Evita que HandleStepAssist + SeamSkimmer + AssistContactClimb se acumulen y produzcan saltos.
+    private bool _seamAssistedThisFrame = false;
+
+    // Material resbaloso compartido, creado una sola vez y reutilizado.
+    private PhysicsMaterial _vehicleSlipMat;
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
-            // Si la masa quedó en el valor por defecto de 1kg, la ajustamos a una masa real de camioneta (1200kg)
-            if (rb.mass <= 10f)
-            {
-                rb.mass = 1200f;
-            }
+            // Masa real de camioneta de reparto
+            rb.mass = 1200f;
 
-            // Bajamos el centro de masa para que el camión no se vuelque fácilmente en las curvas
-            rb.centerOfMass = new Vector3(0, -0.8f, 0); 
-            
-            // IMPORTANTE: Interpolación para que el auto se mueva fluidamente en pantalla
-            // y no tiemble/vibre cuando la cámara (que es suave) lo persiga
+            // IMPORTANTE: desactivar el centro de masa automático para poder bajarlo nosotros.
+            // Si automaticCenterOfMass = true Unity lo recalcula y sobreescribe nuestro valor.
+            rb.automaticCenterOfMass = false;
+            // Centro de masa bajo para mayor estabilidad (evita vuelcos en curvas y bordillos)
+            rb.centerOfMass = new Vector3(0f, -0.5f, 0f);
+
+            // Congelar rotación en X y Z para que el motor de físicas no incline el auto
+            // al chocar con bordillos, juntas o superficies irregulares.
+            // Y (giro de dirección) lo manejamos manualmente con MoveRotation.
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+
+            // Amortiguación angular alta para que el auto no siga girando solo
+            rb.angularDamping = 5f;
+
+            // Iteraciones de solver altas = físicas más estables en colisiones complejas
+            rb.solverIterations = 12;
+            rb.solverVelocityIterations = 4;
+
+            // Interpolación para movimiento fluido en pantalla
             rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-            // Detección continua para evitar atravesar o engancharse con bordes de colliders
+            // Detección continua para evitar atravesar bordes de colliders
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         }
 
-        // Asignar PhysicMaterial sin fricción en los colliders para deslizarse sin trabarse en juntas de pista
+        // Calcular dimensiones para el step assist y los bevel colliders
         CalculateVehicleBounds();
-        ApplyFrictionlessMaterial();
 
         // Agregar colliders esféricos en las esquinas inferiores del vehículo
         // para que suba suavemente sobre veredas (efecto "bisel" o borde redondeado)
@@ -110,6 +127,12 @@ public class VehicleController : MonoBehaviour
         {
             AddBevelColliders();
         }
+
+        // IMPORTANTE: Aplicar el material resbaloso DESPUÉS de crear los bevel colliders,
+        // para que todos los colliders (incluyendo los recién creados) lo reciban.
+        // BUG FIX: Antes se llamaba antes de AddBevelColliders → los bevel spheres quedaban
+        // con fricción por defecto (0.6) y se enganchaban en las juntas de tiles.
+        ApplyFrictionlessMaterial();
 
         // Si tenemos cámara, la preparamos para el seguimiento suave
         if (vehicleCamera != null)
@@ -159,7 +182,9 @@ public class VehicleController : MonoBehaviour
     {
         if (isPlayerInside && rb != null)
         {
+            _seamAssistedThisFrame = false; // Resetear mutex al inicio de cada frame físico
             DrivePhysics();
+            SeamSkimmer();
         }
     }
 
@@ -410,123 +435,176 @@ public class VehicleController : MonoBehaviour
 
     private void ApplyFrictionlessMaterial()
     {
-        // BUG FIX: Fricción 0 absoluta hacía que el vehículo resbalara sin control
-        // en superficies inclinadas. Valores muy bajos (0.05) suavizan el paso por
-        // juntas sin eliminar toda la fricción.
-        PhysicsMaterial seamSlipMat = new PhysicsMaterial("VehicleSeamSlip")
+        // Crear el material una sola vez y guardarlo como campo.
+        if (_vehicleSlipMat == null)
         {
-            dynamicFriction = 0.05f,
-            staticFriction = 0.05f,
-            bounciness = 0f,
-            frictionCombine = PhysicsMaterialCombine.Minimum,
-            bounceCombine = PhysicsMaterialCombine.Minimum
-        };
+            _vehicleSlipMat = new PhysicsMaterial("VehicleSeamSlip")
+            {
+                dynamicFriction  = 0.02f,
+                staticFriction   = 0.02f,
+                bounciness       = 0f,
+                frictionCombine  = PhysicsMaterialCombine.Minimum,
+                bounceCombine    = PhysicsMaterialCombine.Minimum
+            };
+        }
 
-        Collider[] cols = GetComponentsInChildren<Collider>();
+        // BUG FIX: La condición anterior "if (col.sharedMaterial == null)" saltaba los
+        // colliders que tenían un material vacío instanciado en tiempo de ejecución.
+        // Ahora SIEMPRE asignamos el material a todos los colliders no-trigger del vehículo.
+        Collider[] cols = GetComponentsInChildren<Collider>(true);
         foreach (Collider col in cols)
         {
-            if (!col.isTrigger && col.sharedMaterial == null)
+            if (!col.isTrigger)
             {
-                col.sharedMaterial = seamSlipMat;
+                col.sharedMaterial = _vehicleSlipMat;
             }
         }
     }
 
     /// <summary>
-    /// Crea 4 SphereColliders en las esquinas inferiores del vehículo (delantera-izq,
-    /// delantera-der, trasera-izq, trasera-der). Al ser esferas, el motor de físicas
-    /// de Unity las desliza automáticamente hacia arriba cuando topan con un borde
-    /// pequeño, en lugar de bloquearse como lo haría la cara plana de un BoxCollider.
+    /// Crea un PERÍMETRO COMPLETO de SphereColliders a lo largo de los bordes
+    /// inferiores del vehículo (frente, trasera, laterales).
+    ///
+    /// Con solo 4 esferas en las esquinas, la arista frontal del BoxCollider
+    /// del Piso sigue siendo una línea recta a 90° que se engancha en las
+    /// juntas de tiles. Con un perímetro denso, el perfil inferior del vehículo
+    /// es prácticamente ovalado → desliza sobre cualquier junta sin trabarse.
+    ///
+    /// Densidad controlada por bevelSteps (por defecto: 1 esfera por cada
+    /// ~bevelRadius*1.5 metros de arista).
     /// </summary>
     private void AddBevelColliders()
     {
         if (!boundsCalculated) CalculateVehicleBounds();
 
-        // Material resbaloso para los bevel colliders (mismo que el cuerpo)
-        PhysicsMaterial bevelMat = new PhysicsMaterial("BevelSlip")
+        // Reutilizar el material resbaloso ya creado por ApplyFrictionlessMaterial()
+        // (fricción 0.02, bounciness 0, combine=Minimum)
+        PhysicsMaterial mat = _vehicleSlipMat;
+        if (mat == null)
         {
-            dynamicFriction = 0.0f,
-            staticFriction  = 0.0f,
-            bounciness      = 0f,
-            frictionCombine = PhysicsMaterialCombine.Minimum,
-            bounceCombine   = PhysicsMaterialCombine.Minimum
-        };
+            mat = new PhysicsMaterial("BevelSlip")
+            {
+                dynamicFriction = 0.0f,
+                staticFriction  = 0.0f,
+                bounciness      = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum,
+                bounceCombine   = PhysicsMaterialCombine.Minimum
+            };
+        }
 
-        // Las 4 esquinas inferiores en espacio local del vehículo.
-        // Desplazamos las esferas hacia adentro del cuerpo en X para que no asomen
-        // por los lados del mesh. El Y se pone en el fondo + radio para que queden
-        // justo en la línea de tierra.
-        float cornerX  = vehicleHalfWidth - bevelRadius * 0.5f;
-        float cornerY  = vehicleBottomY   + bevelRadius;   // centros a altura de radio
-        float cornerFZ = vehicleFrontZ    - bevelRadius * 0.5f;
-        float cornerRZ = vehicleRearZ     + bevelRadius * 0.5f;
+        float r  = bevelRadius;
+        float cY = vehicleBottomY + r;           // altura del centro de las esferas
+        float fZ = vehicleFrontZ  - r * 0.4f;   // borde frontal (ligeramente dentro)
+        float rZ = vehicleRearZ   + r * 0.4f;   // borde trasero
+        float lX = -(vehicleHalfWidth - r * 0.4f); // lateral izquierdo
+        float rxX =  (vehicleHalfWidth - r * 0.4f); // lateral derecho
 
-        Vector3[] corners = new Vector3[]
+        // --- Calcular cuántas esferas caben a lo largo de cada arista ---
+        // Paso entre centros: 1.4 * radio → ligera superposición para no dejar huecos
+        float spacing = r * 1.4f;
+
+        // Ancho disponible para las esferas del borde frontal/trasero
+        float widthSpan  = rxX - lX;
+        // Longitud disponible para los bordes laterales
+        float lengthSpan = fZ - rZ;
+
+        int stepsW = Mathf.Max(1, Mathf.RoundToInt(widthSpan  / spacing));
+        int stepsL = Mathf.Max(1, Mathf.RoundToInt(lengthSpan / spacing));
+
+        var positions = new System.Collections.Generic.List<(Vector3 pos, string name)>();
+
+        // --- BORDE FRONTAL (fila de esferas en Z = fZ, barriendo X) ---
+        for (int i = 0; i <= stepsW; i++)
         {
-            new Vector3(-cornerX,  cornerY,  cornerFZ),  // frente-izquierda
-            new Vector3( cornerX,  cornerY,  cornerFZ),  // frente-derecha
-            new Vector3(-cornerX,  cornerY,  cornerRZ),  // atrás-izquierda
-            new Vector3( cornerX,  cornerY,  cornerRZ),  // atrás-derecha
-        };
+            float t = stepsW > 0 ? (float)i / stepsW : 0.5f;
+            float x = Mathf.Lerp(lX, rxX, t);
+            positions.Add((new Vector3(x, cY, fZ), $"Bevel_F{i:00}"));
+        }
 
-        string[] cornerNames = { "Bevel_FL", "Bevel_FR", "Bevel_RL", "Bevel_RR" };
-
-        for (int i = 0; i < corners.Length; i++)
+        // --- BORDE TRASERO (fila de esferas en Z = rZ, barriendo X) ---
+        for (int i = 0; i <= stepsW; i++)
         {
-            // Reutilizar un hijo existente si ya fue creado (re-entrada en Play Mode)
-            Transform existing = transform.Find(cornerNames[i]);
-            GameObject bevelGO = existing != null ? existing.gameObject : new GameObject(cornerNames[i]);
+            float t = stepsW > 0 ? (float)i / stepsW : 0.5f;
+            float x = Mathf.Lerp(lX, rxX, t);
+            positions.Add((new Vector3(x, cY, rZ), $"Bevel_R{i:00}"));
+        }
 
-            bevelGO.transform.SetParent(transform, false);
-            bevelGO.transform.localPosition = corners[i];
-            bevelGO.transform.localRotation = Quaternion.identity;
-            bevelGO.layer = gameObject.layer;
+        // --- BORDE LATERAL IZQUIERDO (barriendo Z, sin repetir esquinas) ---
+        for (int i = 1; i < stepsL; i++)
+        {
+            float t = (float)i / stepsL;
+            float z = Mathf.Lerp(fZ, rZ, t);
+            positions.Add((new Vector3(lX, cY, z), $"Bevel_L{i:00}"));
+        }
 
-            SphereCollider sc = bevelGO.GetComponent<SphereCollider>();
-            if (sc == null) sc = bevelGO.AddComponent<SphereCollider>();
-            sc.radius         = bevelRadius;
+        // --- BORDE LATERAL DERECHO ---
+        for (int i = 1; i < stepsL; i++)
+        {
+            float t = (float)i / stepsL;
+            float z = Mathf.Lerp(fZ, rZ, t);
+            positions.Add((new Vector3(rxX, cY, z), $"Bevel_Rx{i:00}"));
+        }
+
+        // --- Crear / reutilizar los GameObjects de bevel ---
+        foreach (var (localPos, bName) in positions)
+        {
+            Transform existing = transform.Find(bName);
+            GameObject bGO = existing != null ? existing.gameObject : new GameObject(bName);
+
+            bGO.transform.SetParent(transform, false);
+            bGO.transform.localPosition = localPos;
+            bGO.transform.localRotation = Quaternion.identity;
+            bGO.layer = gameObject.layer;
+
+            SphereCollider sc = bGO.GetComponent<SphereCollider>();
+            if (sc == null) sc = bGO.AddComponent<SphereCollider>();
+            sc.radius         = r;
             sc.center         = Vector3.zero;
-            sc.sharedMaterial = bevelMat;
+            sc.sharedMaterial = mat;
         }
     }
 
     private void CalculateVehicleBounds()
     {
-        BoxCollider[] boxes = GetComponentsInChildren<BoxCollider>();
+        // BUG FIX: Usar TransformPoint/InverseTransformPoint para que la escala (1.4x) quede
+        // correctamente incluida en las dimensiones calculadas del vehículo en espacio local del root.
+        Collider[] allCols = GetComponentsInChildren<Collider>();
         bool foundAny = false;
         float minY = float.MaxValue;
         float maxZ = float.MinValue;
         float minZ = float.MaxValue;
         float maxX = float.MinValue;
 
-        foreach (BoxCollider box in boxes)
+        foreach (Collider col in allCols)
         {
-            if (box.isTrigger) continue;
+            if (col.isTrigger) continue;
+            // Ignorar los bevel colliders generados por este script para no crear recursión
+            if (col.gameObject.name.StartsWith("Bevel_")) continue;
 
-            Vector3 center = box.center;
-            Vector3 size = box.size;
-
-            Vector3[] corners = new Vector3[8]
+            Bounds wb = col.bounds; // Bounds en espacio mundo
+            // Los 8 corners del AABB en espacio mundo
+            Vector3 c = wb.center;
+            Vector3 e = wb.extents;
+            Vector3[] worldCorners = new Vector3[8]
             {
-                center + new Vector3(-size.x, -size.y, -size.z) * 0.5f,
-                center + new Vector3(-size.x, -size.y,  size.z) * 0.5f,
-                center + new Vector3(-size.x,  size.y, -size.z) * 0.5f,
-                center + new Vector3(-size.x,  size.y,  size.z) * 0.5f,
-                center + new Vector3( size.x, -size.y, -size.z) * 0.5f,
-                center + new Vector3( size.x, -size.y,  size.z) * 0.5f,
-                center + new Vector3( size.x,  size.y, -size.z) * 0.5f,
-                center + new Vector3( size.x,  size.y,  size.z) * 0.5f
+                c + new Vector3(-e.x, -e.y, -e.z),
+                c + new Vector3(-e.x, -e.y,  e.z),
+                c + new Vector3(-e.x,  e.y, -e.z),
+                c + new Vector3(-e.x,  e.y,  e.z),
+                c + new Vector3( e.x, -e.y, -e.z),
+                c + new Vector3( e.x, -e.y,  e.z),
+                c + new Vector3( e.x,  e.y, -e.z),
+                c + new Vector3( e.x,  e.y,  e.z)
             };
 
-            foreach (Vector3 corner in corners)
+            foreach (Vector3 wc in worldCorners)
             {
-                Vector3 worldCorner = box.transform.TransformPoint(corner);
-                Vector3 localToVehicle = transform.InverseTransformPoint(worldCorner);
-
-                minY = Mathf.Min(minY, localToVehicle.y);
-                maxZ = Mathf.Max(maxZ, localToVehicle.z);
-                minZ = Mathf.Min(minZ, localToVehicle.z);
-                maxX = Mathf.Max(maxX, Mathf.Abs(localToVehicle.x));
+                // Convertir a espacio local del root (incluye escala y rotación del transform raíz)
+                Vector3 lc = transform.InverseTransformPoint(wc);
+                minY = Mathf.Min(minY, lc.y);
+                maxZ = Mathf.Max(maxZ, lc.z);
+                minZ = Mathf.Min(minZ, lc.z);
+                maxX = Mathf.Max(maxX, Mathf.Abs(lc.x));
                 foundAny = true;
             }
         }
@@ -555,87 +633,188 @@ public class VehicleController : MonoBehaviour
 
         float moveDirSign = 0f;
         if (Mathf.Abs(verticalInput) > 0.05f)
-        {
             moveDirSign = Mathf.Sign(verticalInput);
-        }
         else if (Mathf.Abs(forwardSpeed) > 0.2f)
-        {
             moveDirSign = Mathf.Sign(forwardSpeed);
-        }
 
         if (moveDirSign == 0f) return;
 
-        bool isMovingForward = moveDirSign > 0f;
         Vector3 travelDirection = transform.forward * moveDirSign;
+        bool isMovingForward = moveDirSign > 0f;
         float edgeZ = isMovingForward ? vehicleFrontZ : vehicleRearZ;
 
-        float probeZ = edgeZ - (0.15f * moveDirSign);
-        float probeY = vehicleBottomY + 0.05f;
+        // Probe ligeramente dentro del borde del vehículo (no afuera) para detectar antes de impactar
+        float probeZ    = edgeZ - (0.1f * moveDirSign);
+        float probeY    = vehicleBottomY + 0.04f;   // a 4 cm del fondo
+        float microY    = vehicleBottomY + 0.012f;  // a 1.2 cm – captura lips de tiles de 1-2 cm
 
+        // 3 puntos de sondeo: centro, izquierda, derecha del frente/trasera
         Vector3[] probeOffsets = new Vector3[]
         {
-            new Vector3(0f, probeY, probeZ),
-            new Vector3(-vehicleHalfWidth * 0.75f, probeY, probeZ),
-            new Vector3(vehicleHalfWidth * 0.75f, probeY, probeZ)
+            new Vector3(0f,                       probeY, probeZ),
+            new Vector3(-vehicleHalfWidth * 0.7f, probeY, probeZ),
+            new Vector3( vehicleHalfWidth * 0.7f, probeY, probeZ),
+            // Extra micro-level para juntas muy pequeñas
+            new Vector3(0f,                       microY, probeZ),
+            new Vector3(-vehicleHalfWidth * 0.6f, microY, probeZ),
+            new Vector3( vehicleHalfWidth * 0.6f, microY, probeZ),
         };
 
-        float probeDistance = Mathf.Clamp(Mathf.Abs(forwardSpeed) * Time.fixedDeltaTime * 2.5f + 0.35f, 0.4f, 1.2f);
+        // La distancia de sondeo crece con la velocidad pero tiene mínimo para detección a baja velocidad
+        float probeRadius   = 0.06f;  // SphereCast: captura bordes que un rayo puntual pierde
+        float probeDistance = Mathf.Clamp(Mathf.Abs(forwardSpeed) * Time.fixedDeltaTime * 3f + 0.3f, 0.3f, 1.0f);
 
         for (int i = 0; i < probeOffsets.Length; i++)
         {
             Vector3 origin = transform.TransformPoint(probeOffsets[i]);
 
-            // 1. Rayo Inferior (a ras de suelo)
-            if (Physics.Raycast(origin, travelDirection, out RaycastHit lowHit, probeDistance, roadLayerMask, QueryTriggerInteraction.Ignore))
+            // 1. SphereCast inferior – detecta el borde/lip del tile
+            RaycastHit lowHit;
+            bool hitLow = Physics.SphereCast(origin, probeRadius, travelDirection,
+                                              out lowHit, probeDistance,
+                                              roadLayerMask, QueryTriggerInteraction.Ignore);
+            if (!hitLow) continue;
+            if (lowHit.collider.transform == transform ||
+                lowHit.collider.transform.IsChildOf(transform)) continue;
+
+            // 2. Verificar que arriba está despejado (es escalón, no muro alto)
+            Vector3 highOrigin = origin + Vector3.up * maxStepHeight;
+            bool highBlocked = Physics.SphereCast(highOrigin, probeRadius * 0.5f, travelDirection,
+                                                   out _, probeDistance * 0.8f,
+                                                   roadLayerMask, QueryTriggerInteraction.Ignore);
+            if (highBlocked) continue;
+
+            // 3. Medir la altura real del tile siguiente
+            Vector3 downOrigin = lowHit.point + travelDirection * 0.1f
+                                + Vector3.up * (maxStepHeight + 0.1f);
+            RaycastHit surfaceHit;
+            if (!Physics.Raycast(downOrigin, Vector3.down, out surfaceHit,
+                                  maxStepHeight + 0.2f, roadLayerMask, QueryTriggerInteraction.Ignore))
+                continue;
+            if (surfaceHit.collider.transform == transform ||
+                surfaceHit.collider.transform.IsChildOf(transform)) continue;
+
+            float stepHeight = surfaceHit.point.y - (origin.y - 0.04f);
+
+            // Solo actuar si es un escalón real (≥ 1mm y ≤ maxStepHeight)
+            if (stepHeight < 0.001f || stepHeight > maxStepHeight) continue;
+            // Mutex: ceder el turno si otro sistema ya actuó este frame
+            if (_seamAssistedThisFrame) break;
+            _seamAssistedThisFrame = true;
+
+            // --- Nudge de velocidad Y: en lugar de AddForce escalado con acceleration
+            // (que produce saltos), simplemente garantizamos que el vehículo tenga
+            // al menos una velocidad Y mínima proporcional a la altura del escalón.
+            // Esto es suave porque nunca supera 1.5 m/s hacia arriba.
+            float targetLiftVel = Mathf.Lerp(0.3f, 1.5f, stepHeight / maxStepHeight);
+            if (rb.linearVelocity.y < targetLiftVel)
             {
-                if (lowHit.collider.transform == transform || lowHit.collider.transform.IsChildOf(transform))
-                    continue;
+                float velDiff = targetLiftVel - rb.linearVelocity.y;
+                rb.AddForce(Vector3.up * velDiff * 8f, ForceMode.Acceleration);
+            }
 
-                // 2. Rayo Superior (a la altura de maxStepHeight)
-                Vector3 highOrigin = origin + Vector3.up * maxStepHeight;
-                bool highBlocked = false;
+            // Pequeño boost hacia adelante para no perder momentum al subir
+            if (Mathf.Abs(forwardSpeed) > 0.5f)
+            {
+                float forwardBoost = Mathf.Clamp(stepHeight * 5f, 0.5f, 4f);
+                rb.AddForce(travelDirection * forwardBoost, ForceMode.Acceleration);
+            }
+            break;
+        }
+    }
 
-                if (Physics.Raycast(highOrigin, travelDirection, out RaycastHit highHit, probeDistance, roadLayerMask, QueryTriggerInteraction.Ignore))
+    /// <summary>
+    /// SeamSkimmer: se ejecuta cada FixedUpdate.
+    /// Hace un SphereCast hacia abajo desde las 4 esquinas inferiores del vehículo.
+    /// Si una esquina está "colgando" sobre el borde de un tile (diferencia de altura respecto
+    /// al suelo promedio), aplica una pequeña fuerza hacia abajo en esa esquina para re-centrar
+    /// el vehículo sobre la junta y evitar que se enganche.
+    /// También detecta contactos laterales mínimos y los convierte en fuerza de escalada.
+    /// </summary>
+    private void SeamSkimmer()
+    {
+        if (!enableStepAssist || rb == null) return;
+
+        float forwardSpeed = Vector3.Dot(transform.forward, rb.linearVelocity);
+        if (Mathf.Abs(forwardSpeed) < 0.2f) return; // Solo actúa en movimiento
+
+        // Sondear el suelo bajo cada una de las 4 esquinas del vehículo
+        float cx = vehicleHalfWidth * 0.85f;
+        float cz_f = vehicleFrontZ  * 0.85f;
+        float cz_r = vehicleRearZ   * 0.85f;
+        float probeStart = vehicleBottomY + 0.15f; // Empieza un poco arriba del fondo
+
+        Vector3[] corners = new Vector3[]
+        {
+            new Vector3(-cx, probeStart, cz_f),
+            new Vector3( cx, probeStart, cz_f),
+            new Vector3(-cx, probeStart, cz_r),
+            new Vector3( cx, probeStart, cz_r),
+        };
+
+        float groundSphereRadius = 0.07f;
+        float groundMaxDist      = 0.35f;
+        float totalGroundY       = 0f;
+        int   groundCount        = 0;
+
+        float[] cornerGroundY = new float[4];
+        for (int i = 0; i < corners.Length; i++)
+        {
+            Vector3 worldOrigin = transform.TransformPoint(corners[i]);
+            RaycastHit groundHit;
+            if (Physics.SphereCast(worldOrigin, groundSphereRadius, Vector3.down,
+                                    out groundHit, groundMaxDist,
+                                    roadLayerMask, QueryTriggerInteraction.Ignore))
+            {
+                if (!groundHit.collider.transform.IsChildOf(transform))
                 {
-                    if (highHit.collider.transform != transform && !highHit.collider.transform.IsChildOf(transform))
-                    {
-                        highBlocked = true;
-                    }
+                    cornerGroundY[i]  = groundHit.point.y;
+                    totalGroundY     += groundHit.point.y;
+                    groundCount++;
                 }
-
-                // Si arriba está despejado, es un escalón o junta de piso que podemos superar
-                if (!highBlocked)
+                else
                 {
-                    // 3. Medir altura de la superficie
-                    Vector3 downRayOrigin = lowHit.point + travelDirection * 0.12f + Vector3.up * (maxStepHeight + 0.15f);
-                    if (Physics.Raycast(downRayOrigin, Vector3.down, out RaycastHit surfaceHit, maxStepHeight + 0.25f, roadLayerMask, QueryTriggerInteraction.Ignore))
-                    {
-                        if (surfaceHit.collider.transform != transform && !surfaceHit.collider.transform.IsChildOf(transform))
-                        {
-                            float stepHeight = surfaceHit.point.y - (origin.y - 0.05f);
-
-                            if (stepHeight > 0.002f && stepHeight <= maxStepHeight)
-                            {
-                                float liftAmount = Mathf.Min(stepHeight + 0.025f, maxStepHeight);
-                                rb.position += Vector3.up * (liftAmount * 12f * Time.fixedDeltaTime);
-
-                                if (Mathf.Abs(forwardSpeed) > 0.5f)
-                                {
-                                    Vector3 currentPlanarVel = Vector3.ProjectOnPlane(rb.linearVelocity, Vector3.up);
-                                    if (currentPlanarVel.magnitude < Mathf.Abs(forwardSpeed) * 0.85f)
-                                    {
-                                        Vector3 targetVel = travelDirection * Mathf.Abs(forwardSpeed);
-                                        rb.linearVelocity = new Vector3(targetVel.x, Mathf.Max(rb.linearVelocity.y, 0.6f), targetVel.z);
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                    }
+                    cornerGroundY[i] = float.NaN;
                 }
+            }
+            else
+            {
+                cornerGroundY[i] = float.NaN;
+            }
+        }
+
+        if (groundCount < 2) return;
+
+        float avgGroundY = totalGroundY / groundCount;
+
+        // Umbral mínimo de 15mm para ignorar ruido de la geometría y pequeñas variaciones
+        // de la SphereCast. Solo actuar sobre diferencias reales de altura de tile.
+        const float kSeamThreshold = 0.015f;
+
+        for (int i = 0; i < corners.Length; i++)
+        {
+            if (float.IsNaN(cornerGroundY[i])) continue;
+
+            float diff = cornerGroundY[i] - avgGroundY;
+
+            if (diff > kSeamThreshold && diff <= maxStepHeight)
+            {
+                // Mutex: no acumular con HandleStepAssist
+                if (_seamAssistedThisFrame) break;
+                _seamAssistedThisFrame = true;
+
+                // Nudge de velocidad Y suave — máximo 0.8 m/s hacia arriba
+                float targetLiftVel = Mathf.Lerp(0.2f, 0.8f, diff / maxStepHeight);
+                if (rb.linearVelocity.y < targetLiftVel)
+                {
+                    float velDiff = targetLiftVel - rb.linearVelocity.y;
+                    rb.AddForce(Vector3.up * velDiff * 6f, ForceMode.Acceleration);
+                }
+                break;
             }
         }
     }
+
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -650,40 +829,66 @@ public class VehicleController : MonoBehaviour
     private void AssistContactClimb(Collision collision)
     {
         if (!enableStepAssist || !isPlayerInside || rb == null) return;
-        
-        float verticalInput = moveInput.y;
-        if (Mathf.Abs(verticalInput) < 0.1f) return;
 
+        float verticalInput = moveInput.y;
+        float forwardSpeed  = Vector3.Dot(transform.forward, rb.linearVelocity);
+
+        // Actúa aunque el jugador no presione tecla: si hay inercia y hay un obstáculo a pie de tile
+        float effectiveMoveSign = 0f;
+        if (Mathf.Abs(verticalInput) > 0.05f)
+            effectiveMoveSign = Mathf.Sign(verticalInput);
+        else if (Mathf.Abs(forwardSpeed) > 0.5f)
+            effectiveMoveSign = Mathf.Sign(forwardSpeed);
+
+        if (effectiveMoveSign == 0f) return;
         if (collision.gameObject.transform.IsChildOf(transform)) return;
 
-        float forwardSign = Mathf.Sign(verticalInput);
-        Vector3 moveDir = transform.forward * forwardSign;
-        float worldBottomY = transform.position.y + vehicleBottomY;
+        Vector3 moveDir      = transform.forward * effectiveMoveSign;
+        float worldBottomY   = transform.TransformPoint(new Vector3(0, vehicleBottomY, 0)).y;
 
         for (int i = 0; i < collision.contactCount; i++)
         {
             ContactPoint contact = collision.GetContact(i);
-            
-            float dotAgainstMove = Vector3.Dot(contact.normal, moveDir);
-            if (dotAgainstMove < -0.3f)
-            {
-                float contactHeight = contact.point.y - worldBottomY;
-                if (contactHeight >= -0.1f && contactHeight <= maxStepHeight)
-                {
-                    rb.position += Vector3.up * 0.035f;
 
-                    // BUG FIX: Antes forzaba una velocidad mínima de 3.5 m/s en cualquier
-                    // contacto lateral → arrancones incontrolables al rozar objetos.
-                    // Ahora solo se preserva la velocidad actual sin forzar un mínimo.
-                    float currentSpeed = rb.linearVelocity.magnitude;
-                    if (currentSpeed > 0.3f)
-                    {
-                        Vector3 slideVelocity = moveDir * currentSpeed;
-                        rb.linearVelocity = new Vector3(slideVelocity.x, Mathf.Max(rb.linearVelocity.y, 0.3f), slideVelocity.z);
-                    }
-                    break;
-                }
+            // La normal del contacto debe ser mayoritariamente horizontal y opuesta al movimiento
+            float dotAgainstMove = Vector3.Dot(contact.normal, moveDir);
+            if (dotAgainstMove > -0.25f) continue; // No es un bloqueo frontal
+
+            // Comprobar que la normal sea horizontal (no el suelo plano ni un muro muy vertical)
+            float normalVertical = Mathf.Abs(contact.normal.y);
+            if (normalVertical > 0.85f) continue; // Demasiado vertical = suelo normal, ignorar
+
+            float contactHeight = contact.point.y - worldBottomY;
+
+            // Solo reaccionar a contactos a la altura de micro-juntas de tiles
+            if (contactHeight < -0.05f || contactHeight > maxStepHeight) continue;
+
+            // Mutex: ceder el turno si HandleStepAssist o SeamSkimmer ya actuaron
+            if (_seamAssistedThisFrame) break;
+            _seamAssistedThisFrame = true;
+
+            // --- Nudge de velocidad Y proporiconal al bloqueo ---
+            // blockIntensity: 1.0 cuando el contacto está ras del suelo, 0 cuando está en maxStepHeight
+            float blockIntensity = Mathf.Clamp01(1f - (contactHeight / maxStepHeight));
+
+            // Garantizar una velocidad Y mínima para trepar el lip — máximo 1.2 m/s
+            float targetLiftVel = blockIntensity * 1.2f;
+            if (rb.linearVelocity.y < targetLiftVel)
+            {
+                float velDiff = targetLiftVel - rb.linearVelocity.y;
+                rb.AddForce(Vector3.up * velDiff * 10f, ForceMode.Acceleration);
             }
+
+            // Pequeño boost adelante para no perder momentum
+            float currentSpeed = Mathf.Abs(forwardSpeed);
+            if (currentSpeed > 0.5f)
+            {
+                float forwardAlignment = Vector3.Dot(rb.linearVelocity.normalized, moveDir);
+                if (forwardAlignment > 0.4f)
+                    rb.AddForce(moveDir * blockIntensity * 3f, ForceMode.Acceleration);
+            }
+
+            break;
         }
     }
 
