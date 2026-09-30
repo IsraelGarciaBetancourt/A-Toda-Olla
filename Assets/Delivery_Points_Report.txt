@@ -1,0 +1,13 @@
+=================================================================
+ DELIVERY POINTS SETUP REPORT - 9/30/2026 2:49:48 PM
+=================================================================
+
+[OK] CasaTipo-A.prefab -> DeliveryPoint en localPos: (5.189, 0.050, 3.753), Trigger: (2.50, 2.00, 2.50)
+[OK] CasaTipo-F.prefab -> DeliveryPoint en localPos: (12.223, 0.050, 1.023), Trigger: (2.50, 2.00, 2.50)
+[OK] CasaTipo-I.prefab -> DeliveryPoint en localPos: (-2.843, 0.050, -11.701), Trigger: (2.50, 2.00, 2.50)
+[OK] CasaTipo-K.prefab -> DeliveryPoint en localPos: (-9.452, 0.050, -5.806), Trigger: (2.50, 2.00, 2.50)
+[OK] CasaTipo-M.prefab -> DeliveryPoint en localPos: (13.573, 0.050, 8.214), Trigger: (2.50, 2.00, 2.50)
+[OK] CasaTipo-R.prefab -> DeliveryPoint en localPos: (28.074, 0.050, -4.188), Trigger: (2.50, 2.00, 2.50)
+[OK] CasaTipo-T.prefab -> DeliveryPoint en localPos: (2.438, 0.050, 2.327), Trigger: (2.50, 2.00, 2.50)
+
+Total prefabs configurados: 7/7

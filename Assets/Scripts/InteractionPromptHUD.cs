@@ -36,6 +36,8 @@ public class InteractionPromptHUD : MonoBehaviour
     public string exitVehicleText = "Para salir";
     public string handsOccupiedText = "¡Manos ocupadas! Presiona [G] para soltar";
     public string cargoFullText = "Van llena: Sin espacio disponible";
+    public string deliverFoodText = "Para entregar comida";
+    public string needFoodItemText = "Trae la comida aquí para entregar";
 
     [Header("Opciones")]
     [Tooltip("¿Mostrar el prompt de recoger al apuntar a objetos del suelo?")]
@@ -65,6 +67,7 @@ public class InteractionPromptHUD : MonoBehaviour
     private VanDoorController vanDoor;
     private CargoZone cargoZone;
     private PlayerPickup playerPickup;
+    private FoodDeliveryManager foodDelivery;
 
     private float targetAlpha = 0f;
     private Vector3 targetScale = Vector3.one;
@@ -225,6 +228,20 @@ public class InteractionPromptHUD : MonoBehaviour
             return;
         }
 
+        // ── 3.5. PRIORIDAD 3.5: Punto de Entrega de Comida en la Casa Activa ──
+        if (foodDelivery != null && foodDelivery.CurrentDestination != null && foodDelivery.CurrentDestination.IsPlayerInZone)
+        {
+            if (hasItem)
+            {
+                ShowPrompt(deliverFoodText, normalTextColor, true, normalKeyColor);
+            }
+            else
+            {
+                ShowPrompt(needFoodItemText, alertTextColor, false, alertKeyColor);
+            }
+            return;
+        }
+
         // ── 4. PRIORIDAD 4: Mirando un objeto recogible del suelo ────────
         if (showPickupPrompt && playerPickup != null && !hasItem && playerPickup.HoveredItem != null)
         {
@@ -280,7 +297,7 @@ public class InteractionPromptHUD : MonoBehaviour
 
     private void EnsureReferences()
     {
-        if (vehicle == null || vanDoor == null || cargoZone == null || playerPickup == null)
+        if (vehicle == null || vanDoor == null || cargoZone == null || playerPickup == null || foodDelivery == null)
         {
             FindGameReferences();
         }
@@ -292,5 +309,6 @@ public class InteractionPromptHUD : MonoBehaviour
         if (vanDoor == null) vanDoor = Object.FindFirstObjectByType<VanDoorController>();
         if (cargoZone == null) cargoZone = Object.FindFirstObjectByType<CargoZone>();
         if (playerPickup == null) playerPickup = Object.FindFirstObjectByType<PlayerPickup>();
+        if (foodDelivery == null) foodDelivery = Object.FindFirstObjectByType<FoodDeliveryManager>();
     }
 }

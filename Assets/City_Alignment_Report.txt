@@ -1,0 +1,197 @@
+=================================================================
+ CITY INSPECTION REPORT - 9/30/2026 2:47:47 PM
+=================================================================
+
+City Root: 'City' at World Pos: (0.00, 0.00, 0.00), Local Pos: (0.00, 0.00, 0.00)
+
+--- DIRECT CHILDREN OF CITY (Total: 20) ---
+[00] 'Street1': LocalPos=(0.0000, 0.0000, 90.0000), WorldPos=(0.0000, 0.0000, 90.0000), LocalRot=(0.00, 0.00, 0.00), Scale=(1.060, 1.000, 5.030) [OK Y=0]
+[01] 'Street2': LocalPos=(-39.2831, 0.0000, 85.8916), WorldPos=(-39.2831, 0.0000, 85.8916), LocalRot=(0.00, 353.20, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[02] 'Street3': LocalPos=(-23.0000, 0.0000, 132.0000), WorldPos=(-23.0000, 0.0000, 132.0000), LocalRot=(0.00, 270.00, 0.00), Scale=(1.060, 1.000, 1.000) [OK Y=0]
+[03] 'Street4': LocalPos=(-3.4105, 0.0000, -17.5146), WorldPos=(-3.4105, 0.0000, -17.5146), LocalRot=(0.00, 0.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[04] 'Street5': LocalPos=(-34.6000, 0.0000, 47.0000), WorldPos=(-34.6000, 0.0000, 47.0000), LocalRot=(0.00, 353.20, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[05] 'Street6': LocalPos=(59.4300, 0.0000, -47.3800), WorldPos=(59.4300, 0.0000, -47.3800), LocalRot=(0.00, 92.20, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[06] 'Street7': LocalPos=(59.4300, 0.0000, -43.6000), WorldPos=(59.4300, 0.0000, -43.6000), LocalRot=(0.00, 90.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[07] 'Street8': LocalPos=(-122.1000, 0.0000, 80.4700), WorldPos=(-122.1000, 0.0000, 80.4700), LocalRot=(0.00, 0.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[08] 'Street9': LocalPos=(27.8100, 0.0000, -16.5000), WorldPos=(27.8100, 0.0000, -16.5000), LocalRot=(0.00, 90.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[09] 'Street10': LocalPos=(-65.6200, 0.0000, -133.7000), WorldPos=(-65.6200, 0.0000, -133.7000), LocalRot=(0.00, 180.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[10] 'Street11': LocalPos=(27.8100, 0.0000, 10.8000), WorldPos=(27.8100, 0.0000, 10.8000), LocalRot=(0.00, 90.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[11] 'Street12': LocalPos=(-159.2500, 0.0000, 134.6300), WorldPos=(-159.2500, 0.0000, 134.6300), LocalRot=(0.00, 0.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[12] 'Street13': LocalPos=(18.5900, 0.0000, 100.1500), WorldPos=(18.5900, 0.0000, 100.1500), LocalRot=(0.00, 70.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[13] 'Street14': LocalPos=(5.0000, 0.0000, 137.5000), WorldPos=(5.0000, 0.0000, 137.5000), LocalRot=(0.00, 70.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[14] 'Street15': LocalPos=(-152.0000, 0.0000, 222.0000), WorldPos=(-152.0000, 0.0000, 222.0000), LocalRot=(0.00, 358.17, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[15] 'Street16': LocalPos=(27.4100, 0.0000, 151.9500), WorldPos=(27.4100, 0.0000, 151.9500), LocalRot=(0.00, 82.60, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[16] 'Street17': LocalPos=(-79.4200, 0.0000, 269.7400), WorldPos=(-79.4200, 0.0000, 269.7400), LocalRot=(0.00, 21.90, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[17] 'Street18': LocalPos=(-159.2500, 0.0000, 348.8400), WorldPos=(-159.2500, 0.0000, 348.8400), LocalRot=(0.00, 0.00, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[18] 'Street19': LocalPos=(-31.9200, 0.0000, 282.5300), WorldPos=(-31.9200, 0.0000, 282.5300), LocalRot=(0.00, 21.90, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+[19] 'Street20': LocalPos=(-231.7000, 0.0000, 219.5000), WorldPos=(-231.7000, 0.0000, 219.5000), LocalRot=(0.00, 358.17, 0.00), Scale=(1.000, 1.000, 1.000) [OK Y=0]
+
+Direct children with local Y != 0: 0/20
+
+--- ALL RECURSIVE DESCENDANTS UNDER CITY ---
+Total descendants: 370
+Objects with World Y != 0: 15
+Objects with Local Y != 0: 15
+Objects with X/Z Tilt: 0
+Objects with Negative Scales: 87
+Total Colliders: 132
+
+--- OBJECTS WITH NEGATIVE SCALE (CRITICAL: PhysX BoxCollider fails!) ---
+  'Street2/Pistas2/PistaVereda': LocalScale=(1.000, 1.000, -5.070), LossyScale=(1.000, 1.000, -5.070)
+  'Street2/Pistas2/PistaVereda/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -50.700)
+  'Street2/Pistas2/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 50.700)
+  'Street4/PistaVereda': LocalScale=(1.000, 1.000, -0.710), LossyScale=(1.000, 1.000, -0.710)
+  'Street4/PistaVereda/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -7.100)
+  'Street4/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 7.100)
+  'Street5/Pistas5/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.430), LossyScale=(1.000, 1.000, -1.430)
+  'Street5/Pistas5/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -14.300)
+  'Street5/Pistas5/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 14.300)
+  'Street6/Pistas6/PistaCuadrada': LocalScale=(1.540, 1.000, -11.530), LossyScale=(1.540, 1.000, -11.530)
+  'Street6/Pistas6/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -11.530)
+  'Street6/Pistas6/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 11.530)
+  'Street6/Pistas6/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.070), LossyScale=(1.000, 1.000, -1.070)
+  'Street6/Pistas6/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -10.700)
+  'Street6/Pistas6/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 10.700)
+  'Street7/Pistas7/PistaCuadrada': LocalScale=(1.540, 1.000, -23.200), LossyScale=(1.540, 1.000, -23.200)
+  'Street7/Pistas7/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -23.200)
+  'Street7/Pistas7/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 23.200)
+  'Street7/Pistas7/PistaVereda (1)': LocalScale=(1.000, 1.000, -2.130), LossyScale=(1.000, 1.000, -2.130)
+  'Street7/Pistas7/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -21.300)
+  'Street7/Pistas7/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 21.300)
+  'Street8/Pistas8/PistaCuadrada': LocalScale=(1.540, 1.000, -9.690), LossyScale=(1.540, 1.000, -9.690)
+  'Street8/Pistas8/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -9.690)
+  'Street8/Pistas8/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 9.690)
+  'Street8/Pistas8/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.030), LossyScale=(1.000, 1.000, -1.030)
+  'Street8/Pistas8/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -10.300)
+  'Street8/Pistas8/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 10.300)
+  'Street9/Pistas9/PistaCuadrada': LocalScale=(1.540, 1.000, -12.900), LossyScale=(1.540, 1.000, -12.900)
+  'Street9/Pistas9/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -12.900)
+  'Street9/Pistas9/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 12.900)
+  'Street9/Pistas9/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.170), LossyScale=(1.000, 1.000, -1.170)
+  'Street9/Pistas9/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -11.700)
+  'Street9/Pistas9/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 11.700)
+  'Street10/Pistas10/PistaCuadrada': LocalScale=(1.540, 1.000, -9.690), LossyScale=(1.540, 1.000, -9.690)
+  'Street10/Pistas10/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -9.690)
+  'Street10/Pistas10/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 9.690)
+  'Street10/Pistas10/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.030), LossyScale=(1.000, 1.000, -1.030)
+  'Street10/Pistas10/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -10.300)
+  'Street10/Pistas10/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 10.300)
+  'Street11/Pistas11/PistaVereda (1)': LocalScale=(1.000, 1.000, -2.360), LossyScale=(1.000, 1.000, -2.360)
+  'Street11/Pistas11/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -23.600)
+  'Street11/Pistas11/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 23.600)
+  'Street12/Pistas12/PistaCuadrada': LocalScale=(1.540, 1.000, -9.690), LossyScale=(1.540, 1.000, -9.690)
+  'Street12/Pistas12/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -9.690)
+  'Street12/Pistas12/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 9.690)
+  'Street12/Pistas12/PistaVereda (1)': LocalScale=(1.000, 1.000, -0.860), LossyScale=(1.000, 1.000, -0.860)
+  'Street12/Pistas12/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -8.600)
+  'Street12/Pistas12/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 8.600)
+  'Street13/Pistas13/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.540), LossyScale=(1.000, 1.000, -1.540)
+  'Street13/Pistas13/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -15.400)
+  'Street13/Pistas13/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 15.400)
+  'Street14/Pistas14/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.398), LossyScale=(1.000, 1.000, -1.398)
+  'Street14/Pistas14/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -13.980)
+  'Street14/Pistas14/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 13.980)
+  'Street15/Pistas15/PistaCuadrada': LocalScale=(1.220, 1.000, -37.400), LossyScale=(1.220, 1.000, -37.400)
+  'Street15/Pistas15/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.220, 1.000, -37.400)
+  'Street15/Pistas15/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.220, 1.000, 37.400)
+  'Street15/Pistas15/PistaVereda': LocalScale=(1.000, 1.000, -3.720), LossyScale=(1.000, 1.000, -3.720)
+  'Street15/Pistas15/PistaVereda/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -37.200)
+  'Street15/Pistas15/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 37.200)
+  'Street16/Pistas16/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.160), LossyScale=(1.000, 1.000, -1.160)
+  'Street16/Pistas16/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -11.600)
+  'Street16/Pistas16/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 11.600)
+  'Street17/Pistas17/PistaCuadrada': LocalScale=(1.220, 1.000, -33.400), LossyScale=(1.220, 1.000, -33.400)
+  'Street17/Pistas17/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.220, 1.000, -33.400)
+  'Street17/Pistas17/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.220, 1.000, 33.400)
+  'Street17/Pistas17/PistaVereda': LocalScale=(1.000, 1.000, -3.370), LossyScale=(1.000, 1.000, -3.370)
+  'Street17/Pistas17/PistaVereda/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -33.700)
+  'Street17/Pistas17/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 33.700)
+  'Street18/Pistas18/PistaCuadrada': LocalScale=(1.540, 1.000, -12.600), LossyScale=(1.540, 1.000, -12.600)
+  'Street18/Pistas18/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.540, 1.000, -12.600)
+  'Street18/Pistas18/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.540, 1.000, 12.600)
+  'Street18/Pistas18/PistaVereda (1)': LocalScale=(1.000, 1.000, -1.320), LossyScale=(1.000, 1.000, -1.320)
+  'Street18/Pistas18/PistaVereda (1)/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -13.200)
+  'Street18/Pistas18/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 13.200)
+  'Street19/Pistas19/PistaCuadrada': LocalScale=(1.770, 1.000, -41.400), LossyScale=(1.770, 1.000, -41.400)
+  'Street19/Pistas19/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.770, 1.000, -41.400)
+  'Street19/Pistas19/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.770, 1.000, 41.400)
+  'Street19/Pistas19/PistaVereda': LocalScale=(1.000, 1.000, -4.150), LossyScale=(1.000, 1.000, -4.150)
+  'Street19/Pistas19/PistaVereda/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -41.500)
+  'Street19/Pistas19/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 41.500)
+  'Street20/Pistas15/PistaCuadrada': LocalScale=(1.220, 1.000, -36.500), LossyScale=(1.220, 1.000, -36.500)
+  'Street20/Pistas15/PistaCuadrada/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 1.000), LossyScale=(1.220, 1.000, -36.500)
+  'Street20/Pistas15/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.220, 1.000, 36.500)
+  'Street20/Pistas15/PistaVereda': LocalScale=(1.000, 1.000, -3.480), LossyScale=(1.000, 1.000, -3.480)
+  'Street20/Pistas15/PistaVereda/Mesh1_Group1_Model': LocalScale=(1.000, 1.000, 10.000), LossyScale=(1.000, 1.000, -34.800)
+  'Street20/Pistas15/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider': LocalScale=(1.000, 1.000, -1.000), LossyScale=(1.000, 1.000, 34.800)
+
+--- SAMPLE OBJECTS WITH WORLD Y != 0 ---
+  'Street1/Houses1/CasaTipo-I': World Y = 3.0117 (Local Y = 3.0117)
+  'Street1/Houses1/CasaTipo-I/building-type-l': World Y = 0.5000 (Local Y = -2.5117)
+  'Street1/Houses1/CasaTipo-I (1)': World Y = 3.0117 (Local Y = 3.0117)
+  'Street1/Houses1/CasaTipo-I (1)/building-type-l': World Y = 0.5000 (Local Y = -2.5117)
+  'Street1/Houses1/CasaTipo-M/building-type-m': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-M (1)/building-type-m': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-T/building-type-t': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-T (1)/building-type-t': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-A/building-type-a': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-A (1)/building-type-a': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-R/building-type-r': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-R (1)/building-type-r': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-K/building-type-k': World Y = 0.5000 (Local Y = 0.5000)
+  'Street1/Houses1/CasaTipo-K (1)/building-type-k': World Y = 0.5000 (Local Y = 0.5000)
+  'Street2/Houses2/CasaTipo-M (2)/building-type-m': World Y = 0.5000 (Local Y = 0.5000)
+
+--- SAMPLE COLLIDERS WITH UNUSUAL TOP SURFACE HEIGHT ---
+  'Street1/PistaVereda/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street1/PistaVereda (1)/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street1/Houses1/CasaTipo-I/building-type-l' (BoxCollider): Top Y (bounds.max.y) = 8.8935, Center Y = 4.6968, Size Y = 8.3935
+  'Street1/Houses1/CasaTipo-I (1)/building-type-l' (BoxCollider): Top Y (bounds.max.y) = 8.8935, Center Y = 4.6968, Size Y = 8.3935
+  'Street1/Houses1/CasaTipo-M/building-type-m' (BoxCollider): Top Y (bounds.max.y) = 6.4000, Center Y = 3.4500, Size Y = 5.9000
+  'Street1/Houses1/CasaTipo-M (1)/building-type-m' (BoxCollider): Top Y (bounds.max.y) = 6.4000, Center Y = 3.4500, Size Y = 5.9000
+  'Street1/Houses1/CasaTipo-T/building-type-t' (BoxCollider): Top Y (bounds.max.y) = 9.7506, Center Y = 5.1253, Size Y = 9.2506
+  'Street1/Houses1/CasaTipo-T (1)/building-type-t' (BoxCollider): Top Y (bounds.max.y) = 9.7506, Center Y = 5.1253, Size Y = 9.2506
+  'Street1/Houses1/CasaTipo-A/building-type-a' (BoxCollider): Top Y (bounds.max.y) = 7.1683, Center Y = 3.8342, Size Y = 6.6683
+  'Street1/Houses1/CasaTipo-A (1)/building-type-a' (BoxCollider): Top Y (bounds.max.y) = 7.1683, Center Y = 3.8342, Size Y = 6.6683
+  'Street1/Houses1/CasaTipo-F/building-type-f' (BoxCollider): Top Y (bounds.max.y) = 9.1000, Center Y = 4.5500, Size Y = 9.1000
+  'Street1/Houses1/CasaTipo-F (1)/building-type-f' (BoxCollider): Top Y (bounds.max.y) = 9.1000, Center Y = 4.5500, Size Y = 9.1000
+  'Street1/Houses1/CasaTipo-R/building-type-r' (BoxCollider): Top Y (bounds.max.y) = 9.6291, Center Y = 5.0646, Size Y = 9.1291
+  'Street1/Houses1/CasaTipo-R (1)/building-type-r' (BoxCollider): Top Y (bounds.max.y) = 9.6291, Center Y = 5.0646, Size Y = 9.1291
+  'Street1/Houses1/CasaTipo-K/building-type-k' (BoxCollider): Top Y (bounds.max.y) = 9.6968, Center Y = 5.0984, Size Y = 9.1968
+  'Street1/Houses1/CasaTipo-K (1)/building-type-k' (BoxCollider): Top Y (bounds.max.y) = 9.6968, Center Y = 5.0984, Size Y = 9.1968
+  'Street2/Pistas2/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street2/Pistas2/PistaVereda (1)/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street2/Houses2/CasaTipo-M (2)/building-type-m' (BoxCollider): Top Y (bounds.max.y) = 6.4000, Center Y = 3.4500, Size Y = 5.9000
+  'Street3/PistaVereda/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street3/PistaVereda (1)/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street3/Curva1/roadTile_056/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street3/Curva1/roadTile_035/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street3/Curva1 (1)/roadTile_056/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street4/Curva1/roadTile_056/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street4/Curva1 (1)/roadTile_056/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street4/Curva1 (1)/roadTile_035/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street4/PistaVereda/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street4/PistaVereda (1)/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street5/Pistas5/roadTile_053/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street5/Pistas5/roadTile_056/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street5/Pistas5/PistaCuadrada/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street5/Pistas5/PistaVereda/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street5/Pistas5/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/CurvaEsquina/roadTile_055/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/CurvaEsquina/roadTile_057/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/CurvaEsquina/roadTile_057 (1)/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/CurvaEsquina/roadTile_057 (2)/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/CurvaEsquina/PistaCuadrada/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/CurvaEsquina/PistaCuadrada (1)/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/PistaVereda/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street6/Pistas6/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street7/Pistas7/PistaCuadrada/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street7/Pistas7/PistaVereda/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street7/Pistas7/PistaVereda (1)/Mesh1_Group1_Model/_PositiveRoadCollider' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street7/Curva/Curva/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street7/Curva/EsquinaCurva/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street7/Curva/PistaCuadrada/Mesh1_Group1_Model' (BoxCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  'Street8/Curva1/roadTile_056/Mesh1_Group1_Model' (MeshCollider): Top Y (bounds.max.y) = 0.6300, Center Y = 0.3150, Size Y = 0.6300
+  ... and 82 more.
+

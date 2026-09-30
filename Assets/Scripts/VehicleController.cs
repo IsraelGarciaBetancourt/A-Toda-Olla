@@ -645,8 +645,7 @@ public class VehicleController : MonoBehaviour
 
         // Probe ligeramente dentro del borde del vehículo (no afuera) para detectar antes de impactar
         float probeZ    = edgeZ - (0.1f * moveDirSign);
-        float probeY    = vehicleBottomY + 0.04f;   // a 4 cm del fondo
-        float microY    = vehicleBottomY + 0.012f;  // a 1.2 cm – captura lips de tiles de 1-2 cm
+        float probeY    = vehicleBottomY + 0.06f;   // a 6 cm del fondo (por encima del asfalto)
 
         // 3 puntos de sondeo: centro, izquierda, derecha del frente/trasera
         Vector3[] probeOffsets = new Vector3[]
@@ -654,21 +653,17 @@ public class VehicleController : MonoBehaviour
             new Vector3(0f,                       probeY, probeZ),
             new Vector3(-vehicleHalfWidth * 0.7f, probeY, probeZ),
             new Vector3( vehicleHalfWidth * 0.7f, probeY, probeZ),
-            // Extra micro-level para juntas muy pequeñas
-            new Vector3(0f,                       microY, probeZ),
-            new Vector3(-vehicleHalfWidth * 0.6f, microY, probeZ),
-            new Vector3( vehicleHalfWidth * 0.6f, microY, probeZ),
         };
 
-        // La distancia de sondeo crece con la velocidad pero tiene mínimo para detección a baja velocidad
-        float probeRadius   = 0.06f;  // SphereCast: captura bordes que un rayo puntual pierde
+        // Radio ajustado para no rozar el suelo plano al cabecear el vehículo
+        float probeRadius   = 0.035f;
         float probeDistance = Mathf.Clamp(Mathf.Abs(forwardSpeed) * Time.fixedDeltaTime * 3f + 0.3f, 0.3f, 1.0f);
 
         for (int i = 0; i < probeOffsets.Length; i++)
         {
             Vector3 origin = transform.TransformPoint(probeOffsets[i]);
 
-            // 1. SphereCast inferior – detecta el borde/lip del tile
+            // 1. SphereCast inferior – detecta bordillos reales (no asfalto)
             RaycastHit lowHit;
             bool hitLow = Physics.SphereCast(origin, probeRadius, travelDirection,
                                               out lowHit, probeDistance,
@@ -684,7 +679,7 @@ public class VehicleController : MonoBehaviour
                                                    roadLayerMask, QueryTriggerInteraction.Ignore);
             if (highBlocked) continue;
 
-            // 3. Medir la altura real del tile siguiente
+            // 3. Medir la altura real del obstáculo
             Vector3 downOrigin = lowHit.point + travelDirection * 0.1f
                                 + Vector3.up * (maxStepHeight + 0.1f);
             RaycastHit surfaceHit;
@@ -694,29 +689,31 @@ public class VehicleController : MonoBehaviour
             if (surfaceHit.collider.transform == transform ||
                 surfaceHit.collider.transform.IsChildOf(transform)) continue;
 
-            float stepHeight = surfaceHit.point.y - (origin.y - 0.04f);
+            float stepHeight = surfaceHit.point.y - (origin.y - 0.06f);
 
-            // Solo actuar si es un escalón real (≥ 1mm y ≤ maxStepHeight)
-            if (stepHeight < 0.001f || stepHeight > maxStepHeight) continue;
+            // Solo actuar si es un bordillo real (≥ 70mm y ≤ maxStepHeight).
+            // Juntas y micro-desniveles (< 70mm) son absorbidos suavemente por los colliders biselados sin saltar.
+            if (stepHeight < 0.07f || stepHeight > maxStepHeight) continue;
+
+            // Si el vehículo ya tiene velocidad hacia arriba, NO agregar más fuerza vertical
+            if (rb.linearVelocity.y > 0.02f) break;
+
             // Mutex: ceder el turno si otro sistema ya actuó este frame
             if (_seamAssistedThisFrame) break;
             _seamAssistedThisFrame = true;
 
-            // --- Nudge de velocidad Y: en lugar de AddForce escalado con acceleration
-            // (que produce saltos), simplemente garantizamos que el vehículo tenga
-            // al menos una velocidad Y mínima proporcional a la altura del escalón.
-            // Esto es suave porque nunca supera 1.5 m/s hacia arriba.
-            float targetLiftVel = Mathf.Lerp(0.3f, 1.5f, stepHeight / maxStepHeight);
+            // --- Nudge vertical muy suave (máximo 0.35 m/s) para no catapultar el auto ---
+            float targetLiftVel = Mathf.Lerp(0.15f, 0.35f, stepHeight / maxStepHeight);
             if (rb.linearVelocity.y < targetLiftVel)
             {
                 float velDiff = targetLiftVel - rb.linearVelocity.y;
-                rb.AddForce(Vector3.up * velDiff * 8f, ForceMode.Acceleration);
+                rb.AddForce(Vector3.up * velDiff * 2.5f, ForceMode.Acceleration);
             }
 
             // Pequeño boost hacia adelante para no perder momentum al subir
             if (Mathf.Abs(forwardSpeed) > 0.5f)
             {
-                float forwardBoost = Mathf.Clamp(stepHeight * 5f, 0.5f, 4f);
+                float forwardBoost = Mathf.Clamp(stepHeight * 3f, 0.3f, 2f);
                 rb.AddForce(travelDirection * forwardBoost, ForceMode.Acceleration);
             }
             break;
@@ -787,9 +784,9 @@ public class VehicleController : MonoBehaviour
 
         float avgGroundY = totalGroundY / groundCount;
 
-        // Umbral mínimo de 15mm para ignorar ruido de la geometría y pequeñas variaciones
-        // de la SphereCast. Solo actuar sobre diferencias reales de altura de tile.
-        const float kSeamThreshold = 0.015f;
+        // Umbral mínimo de 70mm para ignorar rugosidad, curvas y juntas de pistas
+        // Solo actuar sobre bordillos de vereda reales
+        const float kSeamThreshold = 0.07f;
 
         for (int i = 0; i < corners.Length; i++)
         {
@@ -799,16 +796,19 @@ public class VehicleController : MonoBehaviour
 
             if (diff > kSeamThreshold && diff <= maxStepHeight)
             {
+                // Si el vehículo ya va subiendo, no acumular más impulso vertical
+                if (rb.linearVelocity.y > 0.02f) break;
+
                 // Mutex: no acumular con HandleStepAssist
                 if (_seamAssistedThisFrame) break;
                 _seamAssistedThisFrame = true;
 
-                // Nudge de velocidad Y suave — máximo 0.8 m/s hacia arriba
-                float targetLiftVel = Mathf.Lerp(0.2f, 0.8f, diff / maxStepHeight);
+                // Nudge de velocidad Y muy suave — máximo 0.3 m/s hacia arriba
+                float targetLiftVel = Mathf.Lerp(0.1f, 0.3f, diff / maxStepHeight);
                 if (rb.linearVelocity.y < targetLiftVel)
                 {
                     float velDiff = targetLiftVel - rb.linearVelocity.y;
-                    rb.AddForce(Vector3.up * velDiff * 6f, ForceMode.Acceleration);
+                    rb.AddForce(Vector3.up * velDiff * 2f, ForceMode.Acceleration);
                 }
                 break;
             }
@@ -833,7 +833,7 @@ public class VehicleController : MonoBehaviour
         float verticalInput = moveInput.y;
         float forwardSpeed  = Vector3.Dot(transform.forward, rb.linearVelocity);
 
-        // Actúa aunque el jugador no presione tecla: si hay inercia y hay un obstáculo a pie de tile
+        // Actúa si hay movimiento intencionado o inercia
         float effectiveMoveSign = 0f;
         if (Mathf.Abs(verticalInput) > 0.05f)
             effectiveMoveSign = Mathf.Sign(verticalInput);
@@ -852,31 +852,31 @@ public class VehicleController : MonoBehaviour
 
             // La normal del contacto debe ser mayoritariamente horizontal y opuesta al movimiento
             float dotAgainstMove = Vector3.Dot(contact.normal, moveDir);
-            if (dotAgainstMove > -0.25f) continue; // No es un bloqueo frontal
+            if (dotAgainstMove > -0.3f) continue; // No es un bloqueo frontal
 
-            // Comprobar que la normal sea horizontal (no el suelo plano ni un muro muy vertical)
+            // Comprobar que la normal sea horizontal (no el suelo plano ni un muro)
             float normalVertical = Mathf.Abs(contact.normal.y);
-            if (normalVertical > 0.85f) continue; // Demasiado vertical = suelo normal, ignorar
+            if (normalVertical > 0.7f) continue; // Si es inclinada como suelo o curva, ignorar
 
             float contactHeight = contact.point.y - worldBottomY;
 
-            // Solo reaccionar a contactos a la altura de micro-juntas de tiles
-            if (contactHeight < -0.05f || contactHeight > maxStepHeight) continue;
+            // Solo reaccionar si el contacto es un bordillo real (≥ 70mm y ≤ maxStepHeight).
+            if (contactHeight < 0.07f || contactHeight > maxStepHeight) continue;
+
+            // Si el vehículo ya tiene velocidad hacia arriba, NO agregar más fuerza vertical
+            if (rb.linearVelocity.y > 0.02f) break;
 
             // Mutex: ceder el turno si HandleStepAssist o SeamSkimmer ya actuaron
             if (_seamAssistedThisFrame) break;
             _seamAssistedThisFrame = true;
 
-            // --- Nudge de velocidad Y proporiconal al bloqueo ---
-            // blockIntensity: 1.0 cuando el contacto está ras del suelo, 0 cuando está en maxStepHeight
+            // --- Nudge de velocidad Y muy suave para no dar botes ---
             float blockIntensity = Mathf.Clamp01(1f - (contactHeight / maxStepHeight));
-
-            // Garantizar una velocidad Y mínima para trepar el lip — máximo 1.2 m/s
-            float targetLiftVel = blockIntensity * 1.2f;
+            float targetLiftVel = blockIntensity * 0.35f;
             if (rb.linearVelocity.y < targetLiftVel)
             {
                 float velDiff = targetLiftVel - rb.linearVelocity.y;
-                rb.AddForce(Vector3.up * velDiff * 10f, ForceMode.Acceleration);
+                rb.AddForce(Vector3.up * velDiff * 2.5f, ForceMode.Acceleration);
             }
 
             // Pequeño boost adelante para no perder momentum
@@ -885,7 +885,7 @@ public class VehicleController : MonoBehaviour
             {
                 float forwardAlignment = Vector3.Dot(rb.linearVelocity.normalized, moveDir);
                 if (forwardAlignment > 0.4f)
-                    rb.AddForce(moveDir * blockIntensity * 3f, ForceMode.Acceleration);
+                    rb.AddForce(moveDir * blockIntensity * 2f, ForceMode.Acceleration);
             }
 
             break;

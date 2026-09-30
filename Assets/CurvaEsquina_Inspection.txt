@@ -1,0 +1,23 @@
+=== INSPECTION OF City/Street14/CurvaEsquina ===
+
+Root Pos: (-105.50, 0.00, 44.27), Rot: (0.00, 5.80, 0.00), Scale: (1.00, 1.00, 1.00)
+
+Total Colliders: 4
+
+[MeshCollider] 'roadTile_057/Mesh1_Group1_Model' (Mesh: 'Mesh1_Group1_Model'):
+   World Bounds min=(-104.036, 0.000, 42.035), max=(-99.404, 0.630, 47.624)
+
+[MeshCollider] 'roadTile_057 (2)/Mesh1_Group1_Model' (Mesh: 'Mesh1_Group1_Model'):
+   World Bounds min=(-106.194, 0.000, 40.132), max=(-101.494, 0.630, 44.934)
+
+[MeshCollider] 'PistaCuadrada/Mesh1_Group1_Model' (Mesh: 'Mesh1_Group1_Model'):
+   World Bounds min=(-107.155, 0.000, 42.465), max=(-103.100, 0.600, 47.189)
+
+[MeshCollider] 'PistaCuadrada (1)/Mesh1_Group1_Model' (Mesh: 'Mesh1_Group1_Model'):
+   World Bounds min=(-106.130, 0.000, 43.452), max=(-101.456, 0.600, 48.646)
+
+--- RENDERERS IN CurvaEsquina (Total: 4) ---
+Renderer 'roadTile_057/Mesh1_Group1_Model': enabled=True, bounds min=(-104.04, 0.00, 42.04), max=(-99.40, 0.63, 47.62)
+Renderer 'roadTile_057 (2)/Mesh1_Group1_Model': enabled=True, bounds min=(-106.19, 0.00, 40.13), max=(-101.49, 0.63, 44.93)
+Renderer 'PistaCuadrada/Mesh1_Group1_Model': enabled=True, bounds min=(-107.15, 0.00, 42.46), max=(-103.10, 0.60, 47.19)
+Renderer 'PistaCuadrada (1)/Mesh1_Group1_Model': enabled=True, bounds min=(-106.13, 0.00, 43.45), max=(-101.46, 0.60, 48.65)
