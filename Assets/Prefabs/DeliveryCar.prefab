@@ -557,6 +557,9 @@ MonoBehaviour:
   coastingFriction: 0.5
   brakePower: 20
   grip: 5
+  exitSpeedMultiplier: 0.35
+  maxExitSpeed: 6
+  emptyVehicleDeceleration: 4
   vehicleCamera: {fileID: 2449896725078427015}
   mouseSensitivity: 100
   cameraDistance: 7

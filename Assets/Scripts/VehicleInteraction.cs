@@ -19,6 +19,10 @@ public class VehicleInteraction : MonoBehaviour
     [Header("UI (Opcional)")]
     public GameObject interactUI;
 
+    [Header("Radio")]
+    [Tooltip("Referencia al RadioPlayer en el vehículo. Si está vacío se busca automáticamente.")]
+    public RadioPlayer radioPlayer;
+
     private VehicleController vehicleController;
     private bool canInteract = false;
     private bool playerIsInside = false;
@@ -29,10 +33,14 @@ public class VehicleInteraction : MonoBehaviour
     void Start()
     {
         vehicleController = GetComponent<VehicleController>();
-        
+
         vehicleController.isPlayerInside = false;
         if (vehicleCamera != null) vehicleCamera.SetActive(false);
         if (interactUI != null) interactUI.SetActive(false);
+
+        // Buscar RadioPlayer automáticamente si no fue asignado en el Inspector
+        if (radioPlayer == null)
+            radioPlayer = GetComponent<RadioPlayer>();
         
         // Si no asignaste la cámara del jugador, intentamos buscarla
         if (playerCamera == null)
@@ -211,6 +219,9 @@ public class VehicleInteraction : MonoBehaviour
         }
         
         if (interactUI != null) interactUI.SetActive(false);
+
+        // Encender la radio al entrar al vehículo
+        if (radioPlayer != null) radioPlayer.SetActive(true);
     }
 
     private void ExitVehicle()
@@ -218,8 +229,14 @@ public class VehicleInteraction : MonoBehaviour
         canInteract = false;
         if (interactUI != null) interactUI.SetActive(false);
 
+        // Apagar la radio al salir del vehículo (con fade-out)
+        if (radioPlayer != null) radioPlayer.SetActive(false);
+
         playerIsInside = false;
-        vehicleController.isPlayerInside = false;
+        if (vehicleController != null)
+        {
+            vehicleController.OnPlayerExit();
+        }
 
         if (playerObject != null)
         {

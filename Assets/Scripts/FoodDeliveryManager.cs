@@ -67,7 +67,7 @@ public class FoodDeliveryManager : MonoBehaviour
 
         if (autoStartOnPlay)
         {
-            StartCoroutine(DelayedStartFirstOrder(1.0f));
+            StartNewDeliveryOrder();
         }
     }
 

@@ -26,7 +26,7 @@ public class DeliveryPoint : MonoBehaviour
     public GameObject groundMarker;
 
     [Tooltip("Color del indicador visual cuando está activo.")]
-    public Color activeColor = new Color(0.2f, 0.9f, 0.3f, 0.8f);
+    public Color activeColor = new Color(1.0f, 0.78f, 0.18f, 1f);
 
     [Header("Audio / Efectos")]
     [Tooltip("Efecto de sonido al completar la entrega con éxito.")]

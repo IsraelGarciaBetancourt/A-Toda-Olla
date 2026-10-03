@@ -138,45 +138,12 @@ public static class HouseDeliveryPointSetupTool
         }
         dp.dropSpot = dropSpot;
 
-        // 7. Configurar Marcador en el Suelo (GroundMarker)
-        Transform groundMarker = deliveryGO.transform.Find("GroundMarker");
-        if (groundMarker == null)
-        {
-            GameObject gmGO = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            gmGO.name = "GroundMarker";
-            gmGO.transform.SetParent(deliveryGO.transform, false);
-            gmGO.transform.localPosition = new Vector3(0f, 0.02f, 0f);
-            gmGO.transform.localScale = new Vector3(1.6f, 0.02f, 1.6f);
+        // 7 & 8. Configurar Visuales GTA (Corona en el Suelo + Haz de Luz en el Cielo)
+        Material coronaMat = GTADeliveryVisualsSetup.GetOrCreateCoronaMaterial();
+        Material ringMat = GTADeliveryVisualsSetup.GetOrCreateRingMaterial();
+        Material skyBeaconMat = GTADeliveryVisualsSetup.GetOrCreateSkyBeaconMaterial();
 
-            // Eliminar su colisionador para que no estorbe
-            Collider col = gmGO.GetComponent<Collider>();
-            if (col != null) Object.DestroyImmediate(col);
-
-            groundMarker = gmGO.transform;
-        }
-        dp.groundMarker = groundMarker.gameObject;
-
-        // 8. Configurar Baliza Vertical (BeaconVisual)
-        Transform beacon = deliveryGO.transform.Find("BeaconVisual");
-        if (beacon == null)
-        {
-            GameObject bGO = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            bGO.name = "BeaconVisual";
-            bGO.transform.SetParent(deliveryGO.transform, false);
-            bGO.transform.localPosition = new Vector3(0f, 4.5f, 0f);
-            bGO.transform.localScale = new Vector3(0.35f, 4.5f, 0.35f);
-
-            // Eliminar colisionador
-            Collider bCol = bGO.GetComponent<Collider>();
-            if (bCol != null) Object.DestroyImmediate(bCol);
-
-            beacon = bGO.transform;
-        }
-        dp.beaconVisual = beacon.gameObject;
-
-        // Iniciar apagados por defecto (se encenderán cuando FoodDeliveryManager asigne la casa)
-        dp.groundMarker.SetActive(false);
-        dp.beaconVisual.SetActive(false);
+        GTADeliveryVisualsSetup.ConfigureDeliveryPointVisuals(deliveryGO.transform, dp, coronaMat, ringMat, skyBeaconMat);
     }
 
     [MenuItem("Tools/Delivery/2. Remove Delivery Points from House Prefabs")]

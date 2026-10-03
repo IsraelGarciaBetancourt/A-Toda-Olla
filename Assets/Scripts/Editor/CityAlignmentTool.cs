@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Herramienta de Editor para inspeccionar y alinear la altura Y y escalas
@@ -1278,9 +1280,148 @@ public static class CityAlignmentTool
         Debug.Log($"[DeliverySetup] Guardado reporte en {reportPath}");
     }
 
-    [MenuItem("Tools/City Alignment/Setup FoodDeliveryManager in Scene")]
-    public static void SetupFoodDeliveryManagerInScene()
+    [MenuItem("Tools/City Alignment/Setup Complete Delivery System (Materials + Houses + HUD + Manager)")]
+    public static void SetupDeliverySystemComplete()
     {
+        // 1. Materiales GTA (Corona en suelo, Aro y Haz del cielo transparente)
+        Material coronaMat = GTADeliveryVisualsSetup.GetOrCreateCoronaMaterial();
+        Material ringMat = GTADeliveryVisualsSetup.GetOrCreateRingMaterial();
+        Material skyBeaconMat = GTADeliveryVisualsSetup.GetOrCreateSkyBeaconMaterial();
+
+        // 2. Configurar los 7 prefabs de casas con Marcador GTA (Suelo) + Baliza Celeste (78m translúcida)
+        string housesDir = "Assets/Prefabs/Houses/Nivel1";
+        string[] housePrefabs = new string[]
+        {
+            "CasaTipo-A.prefab", "CasaTipo-F.prefab", "CasaTipo-I.prefab",
+            "CasaTipo-K.prefab", "CasaTipo-M.prefab", "CasaTipo-R.prefab", "CasaTipo-T.prefab"
+        };
+
+        foreach (string pName in housePrefabs)
+        {
+            string pPath = Path.Combine(housesDir, pName);
+            if (!File.Exists(pPath)) continue;
+
+            GameObject root = PrefabUtility.LoadPrefabContents(pPath);
+            if (root == null) continue;
+
+            try
+            {
+                Transform dpT = root.transform.Find("DeliveryPoint");
+                if (dpT == null)
+                {
+                    GameObject go = new GameObject("DeliveryPoint");
+                    go.transform.SetParent(root.transform, false);
+                    dpT = go.transform;
+                }
+
+                // Asegurar BoxCollider trigger primero (para RequireComponent)
+                BoxCollider box = dpT.GetComponent<BoxCollider>();
+                if (box == null) box = dpT.gameObject.AddComponent<BoxCollider>();
+                box.isTrigger = true;
+                box.center = new Vector3(0, 1.2f, 0);
+                box.size = new Vector3(3f, 2.5f, 3f);
+
+                DeliveryPoint dp = dpT.GetComponent<DeliveryPoint>();
+                if (dp == null) dp = dpT.gameObject.AddComponent<DeliveryPoint>();
+                dp.houseName = root.name;
+                dp.activeColor = new Color(1f, 0.78f, 0.18f, 1f);
+
+                // DropSpot
+                Transform ds = dpT.Find("DropSpot");
+                if (ds == null)
+                {
+                    GameObject dsGO = new GameObject("DropSpot");
+                    dsGO.transform.SetParent(dpT, false);
+                    dsGO.transform.localPosition = new Vector3(0, 0.05f, 0);
+                    ds = dsGO.transform;
+                }
+                dp.dropSpot = ds;
+
+                // Configurar visuales GTA (Corona en suelo + Haz transparente en el cielo)
+                GTADeliveryVisualsSetup.ConfigureDeliveryPointVisuals(dpT, dp, coronaMat, ringMat, skyBeaconMat);
+
+                PrefabUtility.SaveAsPrefabAsset(root, pPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        // Actualizar también las instancias de DeliveryPoint en la escena actual
+        GTADeliveryVisualsSetup.SetupSceneDeliveryPoints(coronaMat, ringMat, skyBeaconMat);
+
+        // 3. Crear el Banner de Navegación directamente en HUDCanvas en la escena
+        GameObject hudCanvasGO = GameObject.Find("HUDCanvas");
+        if (hudCanvasGO != null)
+        {
+            DeliveryNavigationHUD navHUD = hudCanvasGO.GetComponent<DeliveryNavigationHUD>();
+            if (navHUD == null) navHUD = hudCanvasGO.AddComponent<DeliveryNavigationHUD>();
+
+            // Buscar si ya existe DeliveryMissionBanner
+            Transform existingBanner = hudCanvasGO.transform.Find("DeliveryMissionBanner");
+            GameObject bannerGO;
+            if (existingBanner != null)
+            {
+                bannerGO = existingBanner.gameObject;
+            }
+            else
+            {
+                bannerGO = new GameObject("DeliveryMissionBanner", typeof(RectTransform));
+                bannerGO.transform.SetParent(hudCanvasGO.transform, false);
+                bannerGO.layer = 5; // Layer UI
+            }
+
+            RectTransform bannerRect = bannerGO.GetComponent<RectTransform>();
+            bannerRect.anchorMin = new Vector2(0.5f, 1f);
+            bannerRect.anchorMax = new Vector2(0.5f, 1f);
+            bannerRect.pivot = new Vector2(0.5f, 1f);
+            bannerRect.anchoredPosition = new Vector2(0f, -45f);
+            bannerRect.sizeDelta = new Vector2(850f, 65f);
+
+            Image bannerBg = bannerGO.GetComponent<Image>();
+            if (bannerBg == null) bannerBg = bannerGO.AddComponent<Image>();
+            bannerBg.color = new Color(0.06f, 0.08f, 0.12f, 0.88f);
+
+            // Texto TextMeshPro
+            Transform existingText = bannerGO.transform.Find("MissionText");
+            GameObject textGO;
+            if (existingText != null)
+            {
+                textGO = existingText.gameObject;
+            }
+            else
+            {
+                textGO = new GameObject("MissionText", typeof(RectTransform));
+                textGO.transform.SetParent(bannerGO.transform, false);
+                textGO.layer = 5;
+            }
+
+            RectTransform textRect = textGO.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.sizeDelta = new Vector2(-30f, -10f);
+
+            TextMeshProUGUI tmpText = textGO.GetComponent<TextMeshProUGUI>();
+            if (tmpText == null) tmpText = textGO.AddComponent<TextMeshProUGUI>();
+
+            TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+            if (font != null) tmpText.font = font;
+            tmpText.fontSize = 38;
+            tmpText.fontStyle = FontStyles.Bold;
+            tmpText.alignment = TextAlignmentOptions.Center;
+            tmpText.color = new Color(1f, 0.9f, 0.25f, 1f);
+            tmpText.text = "ENTREGA: Esperando pedido...";
+
+            navHUD.missionText = tmpText;
+            navHUD.missionContainer = bannerGO;
+            bannerGO.SetActive(true);
+
+            EditorUtility.SetDirty(hudCanvasGO);
+            EditorUtility.SetDirty(bannerGO);
+        }
+
+        // 4. Configurar FoodDeliveryManager en la escena
         FoodDeliveryManager manager = Object.FindAnyObjectByType<FoodDeliveryManager>();
         if (manager == null)
         {
@@ -1290,32 +1431,23 @@ public static class CityAlignmentTool
         }
 
         GameObject olla = GameObject.Find("OllaConComida");
-        if (olla != null)
-        {
-            manager.targetFoodItem = olla.GetComponent<PickableItem>();
-        }
+        if (olla != null) manager.targetFoodItem = olla.GetComponent<PickableItem>();
 
         GameObject city = GameObject.Find("City");
-        if (city != null)
-        {
-            manager.cityRoot = city.transform;
-        }
+        if (city != null) manager.cityRoot = city.transform;
 
+        manager.autoStartOnPlay = true;
         manager.RegisterAllDeliveryPoints();
-
-        // Asegurar que el HUDCanvas tenga el DeliveryNavigationHUD
-        GameObject hudCanvas = GameObject.Find("HUDCanvas");
-        if (hudCanvas != null && hudCanvas.GetComponentInChildren<DeliveryNavigationHUD>() == null)
-        {
-            hudCanvas.AddComponent<DeliveryNavigationHUD>();
-        }
-
         EditorUtility.SetDirty(manager.gameObject);
-        if (hudCanvas != null) EditorUtility.SetDirty(hudCanvas);
-        EditorSceneManager.MarkSceneDirty(manager.gameObject.scene);
-        EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
 
-        Debug.Log($"[FoodDeliveryManager] Configurado en la escena con {(manager.targetFoodItem != null ? manager.targetFoodItem.name : "sin comida asignada")}.");
+        // 5. Guardar todo
+        var activeScene = EditorSceneManager.GetActiveScene();
+        EditorSceneManager.MarkSceneDirty(activeScene);
+        EditorSceneManager.SaveScene(activeScene);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Debug.Log("[DeliverySetup] 🚀 ¡Sistema de entrega completamente configurado! Materiales, Balizas 70m, HUD TextMeshPro y Manager listos.");
     }
 }
 

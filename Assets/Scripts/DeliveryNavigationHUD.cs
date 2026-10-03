@@ -124,36 +124,57 @@ public class DeliveryNavigationHUD : MonoBehaviour
 
     private void UpdateHUD()
     {
-        if (missionText == null || deliveryManager == null) return;
+        if (missionText == null) return;
 
-        DeliveryPoint target = deliveryManager.CurrentDestination;
-
-        if (target == null)
+        if (deliveryManager == null)
         {
-            if (missionContainer != null && missionContainer.activeSelf)
-                missionContainer.SetActive(false);
-            return;
+            deliveryManager = Object.FindAnyObjectByType<FoodDeliveryManager>();
+            if (deliveryManager == null)
+            {
+                missionText.text = "Esperando FoodDeliveryManager...";
+                return;
+            }
         }
 
         if (missionContainer != null && !missionContainer.activeSelf)
             missionContainer.SetActive(true);
 
+        DeliveryPoint target = deliveryManager.CurrentDestination;
+
+        if (target == null)
+        {
+            missionText.text = "ASIGNANDO PEDIDO...";
+            missionText.color = waitingColor;
+            return;
+        }
+
+        Vector3 playerPos = playerTransform != null 
+            ? playerTransform.position 
+            : (Camera.main != null ? Camera.main.transform.position : Vector3.zero);
+
         switch (deliveryManager.CurrentState)
         {
             case FoodDeliveryManager.DeliveryState.WaitingForPickup:
-                missionText.text = "🍲 Recoge la OllaConComida para iniciar la entrega";
+                float distToFood = 0f;
+                if (deliveryManager.targetFoodItem != null)
+                {
+                    distToFood = Vector3.Distance(playerPos, deliveryManager.targetFoodItem.transform.position);
+                }
+                missionText.text = distToFood > 5f
+                    ? $"RECOGE LA OLLA CON COMIDA ({Mathf.RoundToInt(distToFood)}m) -> DESTINO: {target.houseName.ToUpper()}"
+                    : $"RECOGE LA OLLA CON COMIDA -> DESTINO: {target.houseName.ToUpper()}";
                 missionText.color = waitingColor;
                 break;
 
             case FoodDeliveryManager.DeliveryState.InTransit:
-                float dist = Vector3.Distance(playerTransform.position, target.transform.position);
+                float dist = Vector3.Distance(playerPos, target.transform.position);
                 int meters = Mathf.Max(1, Mathf.RoundToInt(dist));
-                missionText.text = $"📍 Entregar en: {target.houseName}  •  {meters} m";
+                missionText.text = $"ENTREGAR EN: {target.houseName.ToUpper()}  •  {meters} M";
                 missionText.color = inTransitColor;
                 break;
 
             case FoodDeliveryManager.DeliveryState.Completed:
-                missionText.text = $"🎉 ¡Entrega completada! +${deliveryManager.rewardPerDelivery}";
+                missionText.text = $"¡ENTREGA COMPLETADA!  +${deliveryManager.rewardPerDelivery}";
                 missionText.color = successColor;
                 break;
 

@@ -1,4 +1,0 @@
-=== ALL ROAD COLLIDERS WITH TOP Y != 0.630 ===
-
-
-Total non-0.630 road colliders: 0

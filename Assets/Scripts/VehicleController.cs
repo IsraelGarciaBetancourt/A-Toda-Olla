@@ -11,6 +11,17 @@ public class VehicleController : MonoBehaviour
     public float brakePower = 20f; // Freno activo
     public float grip = 5f; // Cuánto "agarre" tienen las llantas (evita que resbale como hielo)
 
+    [Header("Bail-Out / Desaceleración al Salir")]
+    [Tooltip("Porcentaje de velocidad que conserva el auto inmediatamente al bajarse el jugador en marcha (ej: 0.35 = se reduce al 35% de la velocidad actual).")]
+    [Range(0.05f, 1f)]
+    public float exitSpeedMultiplier = 0.35f;
+
+    [Tooltip("Velocidad máxima (m/s) que puede conservar el vehículo inmediatamente al bajarse.")]
+    public float maxExitSpeed = 6f;
+
+    [Tooltip("Fuerza de desaceleración y frenado progresivo cuando el auto rueda sin conductor hasta detenerse.")]
+    public float emptyVehicleDeceleration = 4f;
+
     [Header("Step & Seam Assist (Superar juntas de pistas)")]
     [Tooltip("Permite superar desniveles microscópicos, baldosas y juntas sin frenar en seco.")]
     public bool enableStepAssist = true;
@@ -54,6 +65,13 @@ public class VehicleController : MonoBehaviour
 
     [Header("State")]
     public bool isPlayerInside = false;
+    private bool wasPlayerInside = false;
+
+    /// <summary>Velocidad de avance longitudinal en m/s (positiva hacia adelante, negativa marcha atrás).</summary>
+    public float ForwardSpeed => rb != null ? Vector3.Dot(transform.forward, rb.linearVelocity) : 0f;
+
+    /// <summary>Magnitud de la velocidad en m/s.</summary>
+    public float LinearSpeed => rb != null ? rb.linearVelocity.magnitude : 0f;
 
     private Rigidbody rb;
     private Vector2 moveInput;
@@ -152,10 +170,19 @@ public class VehicleController : MonoBehaviour
         frontWheels[1] = FindChildRecursive(transform, "wheel-front-right");
         backWheels[0] = FindChildRecursive(transform, "wheel-back-left");
         backWheels[1] = FindChildRecursive(transform, "wheel-back-right");
+
+        wasPlayerInside = isPlayerInside;
     }
 
     void Update()
     {
+        // Si el jugador acaba de salir (por código o Inspector), aplicar el frenado de escape
+        if (wasPlayerInside && !isPlayerInside)
+        {
+            ApplyExitBraking();
+        }
+        wasPlayerInside = isPlayerInside;
+
         if (isPlayerInside)
         {
             // Asegurarnos de que las acciones están encendidas
@@ -180,11 +207,17 @@ public class VehicleController : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (isPlayerInside && rb != null)
+        if (rb == null) return;
+
+        if (isPlayerInside)
         {
             _seamAssistedThisFrame = false; // Resetear mutex al inicio de cada frame físico
             DrivePhysics();
             SeamSkimmer();
+        }
+        else
+        {
+            HandleEmptyVehiclePhysics();
         }
     }
 
@@ -385,6 +418,71 @@ public class VehicleController : MonoBehaviour
             exitTargetCamera = targetCameraTransform;
             isExiting = true;
             cameraTransitionTimer = cameraTransitionDuration;
+        }
+    }
+
+    /// <summary>
+    /// Llamado cuando el jugador se baja del vehículo.
+    /// Reduce drásticamente la velocidad excesiva para que el auto ruede con inercia controlada
+    /// y justa para el jugador, sin salir disparado fuera de alcance.
+    /// </summary>
+    public void OnPlayerExit()
+    {
+        isPlayerInside = false;
+        wasPlayerInside = false;
+        ApplyExitBraking();
+    }
+
+    private void ApplyExitBraking()
+    {
+        if (rb == null) return;
+
+        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        float currentSpeed = horizontalVel.magnitude;
+
+        if (currentSpeed > 0.1f)
+        {
+            // Reducir la velocidad horizontal al porcentaje configurado y limitarla a maxExitSpeed
+            float targetSpeed = Mathf.Min(currentSpeed * exitSpeedMultiplier, maxExitSpeed);
+            Vector3 newHorizontalVel = horizontalVel.normalized * targetSpeed;
+            rb.linearVelocity = new Vector3(newHorizontalVel.x, rb.linearVelocity.y, newHorizontalVel.z);
+        }
+    }
+
+    /// <summary>
+    /// Físicas cuando el vehículo no tiene conductor:
+    /// Desacelera suavemente por fricción de rodadura, mantiene agarre lateral y downforce,
+    /// y aplica el freno de estacionamiento una vez detenido para que no deslice infinitamente.
+    /// </summary>
+    private void HandleEmptyVehiclePhysics()
+    {
+        Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        float speed = horizontalVel.magnitude;
+
+        if (speed > 0.15f)
+        {
+            // 1. Desaceleración progresiva (freno natural por fricción y rodadura sin conductor)
+            Vector3 brakeForce = -horizontalVel.normalized * emptyVehicleDeceleration;
+            rb.AddForce(brakeForce, ForceMode.Acceleration);
+
+            // 2. Agarre lateral (evita que el auto derrape de lado sin control)
+            Vector3 rightVelocity = transform.right * Vector3.Dot(rb.linearVelocity, transform.right);
+            rb.AddForce(-rightVelocity * grip, ForceMode.Acceleration);
+
+            // 3. Downforce para mantener las ruedas pegadas al asfalto
+            if (downforce > 0f)
+            {
+                rb.AddForce(-Vector3.up * downforce, ForceMode.Acceleration);
+            }
+        }
+        else
+        {
+            // 4. Detención completa / Freno de estacionamiento:
+            // Anula cualquier deslizamiento horizontal residual sin afectar la gravedad vertical
+            if (horizontalVel.sqrMagnitude > 0.0001f)
+            {
+                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
+            }
         }
     }
 
