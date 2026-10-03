@@ -599,12 +599,9 @@ public class RadioPlayer : MonoBehaviour
 
     private StationPlaybackState GetCurrentState()
     {
-        EnsureStationStatesInitialized();
-        if (stationStates != null && currentStationIndex >= 0 && currentStationIndex < stationStates.Length)
-        {
-            return stationStates[currentStationIndex];
-        }
-        return null;
+        if (stationStates == null || currentStationIndex < 0 || currentStationIndex >= stationStates.Length)
+            return null;
+        return stationStates[currentStationIndex];
     }
 
     private void EnsureStationStatesInitialized()
