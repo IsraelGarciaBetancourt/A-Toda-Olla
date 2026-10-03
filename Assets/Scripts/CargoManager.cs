@@ -35,6 +35,7 @@ public class CargoManager : MonoBehaviour
     public float WeightPercentage => WeightRatio * 100f;
     public int LoadedCount => loadedItemCount;
     public bool IsFull => currentCargoWeight >= maxCargoWeight;
+    public IReadOnlyList<PickableItem> LoadedItems => loadedItems;
 
     // Evento para el HUD: envía (pesoActual, pesoMaximo)
     public event System.Action<float, float> OnWeightChanged;

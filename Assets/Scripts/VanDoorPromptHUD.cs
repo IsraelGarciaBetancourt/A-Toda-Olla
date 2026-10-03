@@ -220,7 +220,7 @@ public class VanDoorPromptHUD : MonoBehaviour
     {
         if (vanDoorController == null)
         {
-            vanDoorController = Object.FindFirstObjectByType<VanDoorController>();
+            vanDoorController = Object.FindAnyObjectByType<VanDoorController>();
         }
     }
 }

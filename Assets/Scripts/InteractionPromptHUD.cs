@@ -36,8 +36,8 @@ public class InteractionPromptHUD : MonoBehaviour
     public string exitVehicleText = "Para salir";
     public string handsOccupiedText = "¡Manos ocupadas! Presiona [G] para soltar";
     public string cargoFullText = "Van llena: Sin espacio disponible";
-    public string deliverFoodText = "Para entregar comida";
-    public string needFoodItemText = "Trae la comida aquí para entregar";
+    public string deliverFoodText = "Para entregar olla con comida";
+    public string needFoodItemText = "Trae la olla con comida para entregar";
 
     [Header("Opciones")]
     [Tooltip("¿Mostrar el prompt de recoger al apuntar a objetos del suelo?")]
@@ -231,13 +231,25 @@ public class InteractionPromptHUD : MonoBehaviour
         // ── 3.5. PRIORIDAD 3.5: Punto de Entrega de Comida en la Casa Activa ──
         if (foodDelivery != null && foodDelivery.CurrentDestination != null && foodDelivery.CurrentDestination.IsPlayerInZone)
         {
-            if (hasItem)
+            if (hasItem && foodDelivery.IsDeliverableFoodItem(playerPickup.CurrentItem))
             {
                 ShowPrompt(deliverFoodText, normalTextColor, true, normalKeyColor);
             }
+            else if (hasItem)
+            {
+                ShowPrompt("Este objeto no es una comida para entregar", alertTextColor, false, alertKeyColor);
+            }
             else
             {
-                ShowPrompt(needFoodItemText, alertTextColor, false, alertKeyColor);
+                PickableItem groundPot = foodDelivery.CurrentDestination.FindFoodItemInDeliveryZone();
+                if (groundPot != null && foodDelivery.IsDeliverableFoodItem(groundPot))
+                {
+                    ShowPrompt(deliverFoodText, normalTextColor, true, normalKeyColor);
+                }
+                else
+                {
+                    ShowPrompt(needFoodItemText, alertTextColor, false, alertKeyColor);
+                }
             }
             return;
         }
@@ -305,10 +317,10 @@ public class InteractionPromptHUD : MonoBehaviour
 
     private void FindGameReferences()
     {
-        if (vehicle == null) vehicle = Object.FindFirstObjectByType<VehicleInteraction>();
-        if (vanDoor == null) vanDoor = Object.FindFirstObjectByType<VanDoorController>();
-        if (cargoZone == null) cargoZone = Object.FindFirstObjectByType<CargoZone>();
-        if (playerPickup == null) playerPickup = Object.FindFirstObjectByType<PlayerPickup>();
-        if (foodDelivery == null) foodDelivery = Object.FindFirstObjectByType<FoodDeliveryManager>();
+        if (vehicle == null) vehicle = Object.FindAnyObjectByType<VehicleInteraction>();
+        if (vanDoor == null) vanDoor = Object.FindAnyObjectByType<VanDoorController>();
+        if (cargoZone == null) cargoZone = Object.FindAnyObjectByType<CargoZone>();
+        if (playerPickup == null) playerPickup = Object.FindAnyObjectByType<PlayerPickup>();
+        if (foodDelivery == null) foodDelivery = Object.FindAnyObjectByType<FoodDeliveryManager>();
     }
 }

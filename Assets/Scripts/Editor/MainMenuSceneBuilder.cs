@@ -337,16 +337,6 @@ public static class MainMenuSceneBuilder
 
     private static void UpdateBuildSettings()
     {
-        EditorBuildSettingsScene[] currentScenes = EditorBuildSettings.scenes;
-        bool hasMainMenu = false;
-        bool hasGame = false;
-
-        foreach (var scene in currentScenes)
-        {
-            if (scene.path == SCENE_PATH) hasMainMenu = true;
-            if (scene.path == GAME_SCENE_PATH) hasGame = true;
-        }
-
         EditorBuildSettingsScene[] newScenes = new EditorBuildSettingsScene[2];
         newScenes[0] = new EditorBuildSettingsScene(SCENE_PATH, true);
         newScenes[1] = new EditorBuildSettingsScene(GAME_SCENE_PATH, true);

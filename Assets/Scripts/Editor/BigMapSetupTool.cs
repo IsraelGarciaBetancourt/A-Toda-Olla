@@ -102,7 +102,7 @@ public static class BigMapSetupTool
 
         // ── 6. Buscar HUDCanvas ────────────────────────────────────────────
         Canvas hudCanvas = null;
-        foreach (Canvas c in Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        foreach (Canvas c in Object.FindObjectsByType<Canvas>())
         {
             if (c.name == "HUDCanvas") { hudCanvas = c; break; }
         }

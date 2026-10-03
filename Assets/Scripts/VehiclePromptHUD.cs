@@ -216,12 +216,12 @@ public class VehiclePromptHUD : MonoBehaviour
     {
         if (vehicleInteraction == null)
         {
-            vehicleInteraction = Object.FindFirstObjectByType<VehicleInteraction>();
+            vehicleInteraction = Object.FindAnyObjectByType<VehicleInteraction>();
         }
 
         if (playerPickup == null)
         {
-            playerPickup = Object.FindFirstObjectByType<PlayerPickup>();
+            playerPickup = Object.FindAnyObjectByType<PlayerPickup>();
         }
     }
 }

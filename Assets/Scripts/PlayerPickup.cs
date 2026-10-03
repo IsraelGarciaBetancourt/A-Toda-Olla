@@ -127,8 +127,8 @@ public class PlayerPickup : MonoBehaviour
     {
         if (playerCameraTransform == null) return;
 
-        if (cargoZone == null) cargoZone = Object.FindFirstObjectByType<CargoZone>();
-        if (vanDoorController == null) vanDoorController = Object.FindFirstObjectByType<VanDoorController>();
+        if (cargoZone == null) cargoZone = Object.FindAnyObjectByType<CargoZone>();
+        if (vanDoorController == null) vanDoorController = Object.FindAnyObjectByType<VanDoorController>();
 
         float maxRange = Mathf.Max(pickupRange, cargoPickupRange);
         Ray ray = new Ray(playerCameraTransform.position, playerCameraTransform.forward);
@@ -145,7 +145,7 @@ public class PlayerPickup : MonoBehaviour
                 if (!hit.collider.isTrigger)
                 {
                     PickableItem item = hit.collider.GetComponentInParent<PickableItem>();
-                    if (item != null && !item.IsBeingCarried && !item.IsStoredInCargo)
+                    if (item != null && item.enabled && !item.IsDelivered && !item.IsBeingCarried && !item.IsStoredInCargo)
                     {
                         if (hit.distance <= pickupRange)
                         {
@@ -165,7 +165,7 @@ public class PlayerPickup : MonoBehaviour
                 else
                 {
                     PickableItem item = hit.collider.GetComponentInParent<PickableItem>();
-                    if (item != null && !item.IsBeingCarried)
+                    if (item != null && item.enabled && !item.IsDelivered && !item.IsBeingCarried)
                     {
                         if (item.IsStoredInCargo)
                         {
@@ -246,7 +246,20 @@ public class PlayerPickup : MonoBehaviour
 
     private void HandleInteract()
     {
-        // 1. Si no tenemos nada en brazos y estamos apuntando a un ítem
+        // 1. Si tenemos un objeto en manos y estamos en una zona de entrega activa:
+        if (CurrentItem != null)
+        {
+            FoodDeliveryManager deliveryManager = FoodDeliveryManager.Instance;
+            if (deliveryManager != null && deliveryManager.CurrentDestination != null && deliveryManager.CurrentDestination.IsPlayerInZone)
+            {
+                if (deliveryManager.TryDeliverCurrentItem())
+                {
+                    return;
+                }
+            }
+        }
+
+        // 2. Si no tenemos nada en brazos y estamos apuntando a un ítem
         if (CurrentItem == null && HoveredItem != null)
         {
             if (HoveredItem.IsStoredInCargo)
@@ -269,7 +282,7 @@ public class PlayerPickup : MonoBehaviour
 
         LastPickupTime = Time.time;
 
-        if (cargoZone == null) cargoZone = Object.FindFirstObjectByType<CargoZone>();
+        if (cargoZone == null) cargoZone = Object.FindAnyObjectByType<CargoZone>();
 
         if (cargoZone != null)
         {

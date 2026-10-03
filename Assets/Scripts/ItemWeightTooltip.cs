@@ -174,7 +174,7 @@ public class ItemWeightTooltip : MonoBehaviour
         PickableItem bestItem  = null;
         float        bestScore = float.MaxValue; // menor ángulo = mejor
 
-        if (vanDoorController == null) vanDoorController = Object.FindFirstObjectByType<VanDoorController>();
+        if (vanDoorController == null) vanDoorController = Object.FindAnyObjectByType<VanDoorController>();
 
         for (int i = 0; i < count; i++)
         {
@@ -235,7 +235,7 @@ public class ItemWeightTooltip : MonoBehaviour
     {
         if (playerPickup == null)
         {
-            playerPickup = Object.FindFirstObjectByType<PlayerPickup>();
+            playerPickup = Object.FindAnyObjectByType<PlayerPickup>();
             if (playerPickup == null)
             {
                 GameObject go = GameObject.FindGameObjectWithTag("Player");
@@ -252,7 +252,7 @@ public class ItemWeightTooltip : MonoBehaviour
                 activeCamera = playerPickup.GetComponentInChildren<Camera>(false);
 
             if (activeCamera == null) activeCamera = Camera.main;
-            if (activeCamera == null) activeCamera = Object.FindFirstObjectByType<Camera>();
+            if (activeCamera == null) activeCamera = Object.FindAnyObjectByType<Camera>();
         }
     }
 

@@ -7,20 +7,22 @@ using UnityEngine.InputSystem;
 /// <summary>
 /// Gestor central de misiones de entrega de comida.
 /// Registra las casas con DeliveryPoint en la ciudad, selecciona un destino al azar,
-/// rastrea la OllaConComida y coordina el ciclo de juego.
+/// admite cualquier OllaConComida de la escena y coordina el ciclo de juego.
 /// </summary>
 public class FoodDeliveryManager : MonoBehaviour
 {
+    public static FoodDeliveryManager Instance { get; private set; }
+
     public enum DeliveryState
     {
         Idle,
-        WaitingForPickup,  // La comida está en el suelo o en la mesa esperando a ser recogida
+        WaitingForPickup,  // La comida está en el suelo o en la cocina esperando a ser recogida
         InTransit,         // El jugador la lleva consigo o está en la van en camino a la casa
         Completed          // Pedido entregado con éxito
     }
 
     [Header("Referencias del Pedido")]
-    [Tooltip("El ítem de comida a entregar. Si se deja vacío, buscará 'OllaConComida' en la escena automáticamente.")]
+    [Tooltip("Ítem de comida opcional predeterminado. Si está vacío, cualquier OllaConComida no entregada de la escena es válida.")]
     public PickableItem targetFoodItem;
 
     [Tooltip("Transform raíz de la ciudad donde buscar los DeliveryPoint. Si se deja vacío, buscará en toda la escena.")]
@@ -58,6 +60,19 @@ public class FoodDeliveryManager : MonoBehaviour
     private List<DeliveryPoint> availableDeliveryPoints = new List<DeliveryPoint>();
     private DeliveryPoint previousDestination = null;
     private PlayerPickup cachedPlayerPickup = null;
+    private CargoManager cachedCargoManager = null;
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else if (Instance != this)
+        {
+            Destroy(this);
+        }
+    }
 
     void Start()
     {
@@ -100,34 +115,120 @@ public class FoodDeliveryManager : MonoBehaviour
         {
             cachedPlayerPickup = Object.FindAnyObjectByType<PlayerPickup>();
         }
+
+        if (cachedCargoManager == null)
+        {
+            cachedCargoManager = Object.FindAnyObjectByType<CargoManager>();
+        }
     }
 
     private void FindFoodItem()
     {
         if (targetFoodItem == null)
         {
-            // 1. Buscar por nombre exacto "OllaConComida"
-            GameObject olla = GameObject.Find("OllaConComida");
-            if (olla != null)
-            {
-                targetFoodItem = olla.GetComponent<PickableItem>();
-            }
-
-            // 2. Si no se encontró por nombre, buscar cualquier PickableItem en la escena
-            if (targetFoodItem == null)
-            {
-                targetFoodItem = Object.FindAnyObjectByType<PickableItem>();
-            }
+            // Buscar la olla de comida disponible más cercana
+            targetFoodItem = GetNearestAvailableFoodItem(Vector3.zero);
 
             if (targetFoodItem != null)
             {
-                Debug.Log($"[FoodDeliveryManager] Ítem de comida asignado: {targetFoodItem.itemName} ({targetFoodItem.name})");
-            }
-            else
-            {
-                Debug.LogWarning("[FoodDeliveryManager] No se encontró 'OllaConComida' ni ningún PickableItem en la escena.");
+                Debug.Log($"[FoodDeliveryManager] Olla de comida inicial asignada: {targetFoodItem.itemName} ({targetFoodItem.name})");
             }
         }
+    }
+
+    /// <summary>
+    /// Determina si un objeto es una olla de comida válida para entregar.
+    /// Acepta cualquier OllaConComida que no haya sido entregada previamente.
+    /// </summary>
+    public bool IsDeliverableFoodItem(PickableItem item)
+    {
+        if (item == null || item.IsDelivered) return false;
+
+        // Coincidencia con target manual opcional
+        if (targetFoodItem != null && item == targetFoodItem) return true;
+
+        // Propiedad del ítem
+        if (item.isDeliverableFood) return true;
+
+        // Por nombre de ítem o de GameObject (OllaConComida, Olla, etc.)
+        if (!string.IsNullOrEmpty(item.itemName) && item.itemName.IndexOf("Olla", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+
+        if (item.name.IndexOf("Olla", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Comprueba si el jugador o la van transportan una olla de comida lista para entregarse.
+    /// </summary>
+    public bool IsAnyFoodInTransit()
+    {
+        FindPlayerReferences();
+
+        // 1. ¿El jugador lleva una olla en sus manos?
+        if (cachedPlayerPickup != null && cachedPlayerPickup.CurrentItem != null)
+        {
+            if (IsDeliverableFoodItem(cachedPlayerPickup.CurrentItem))
+                return true;
+        }
+
+        // 2. ¿Hay alguna olla en la van (CargoManager)?
+        if (cachedCargoManager != null && cachedCargoManager.LoadedItems != null)
+        {
+            for (int i = 0; i < cachedCargoManager.LoadedItems.Count; i++)
+            {
+                PickableItem item = cachedCargoManager.LoadedItems[i];
+                if (item != null && IsDeliverableFoodItem(item))
+                    return true;
+            }
+        }
+        else
+        {
+            // Búsqueda de respaldo por estado IsStoredInCargo
+            PickableItem[] allItems = Object.FindObjectsByType<PickableItem>();
+            for (int i = 0; i < allItems.Length; i++)
+            {
+                if (allItems[i].IsStoredInCargo && IsDeliverableFoodItem(allItems[i]))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Encuentra la olla de comida no entregada más cercana a una posición dada.
+    /// </summary>
+    public PickableItem GetNearestAvailableFoodItem(Vector3 fromPosition)
+    {
+        FindPlayerReferences();
+
+        if (cachedPlayerPickup != null && cachedPlayerPickup.CurrentItem != null && IsDeliverableFoodItem(cachedPlayerPickup.CurrentItem))
+        {
+            return cachedPlayerPickup.CurrentItem;
+        }
+
+        PickableItem[] allItems = Object.FindObjectsByType<PickableItem>();
+        PickableItem closest = null;
+        float minDistanceSq = float.MaxValue;
+
+        for (int i = 0; i < allItems.Length; i++)
+        {
+            PickableItem it = allItems[i];
+            if (it == null || !it.gameObject.activeInHierarchy || it.IsDelivered) continue;
+            if (!IsDeliverableFoodItem(it)) continue;
+
+            float distSq = (it.transform.position - fromPosition).sqrMagnitude;
+            if (distSq < minDistanceSq)
+            {
+                minDistanceSq = distSq;
+                closest = it;
+            }
+        }
+
+        return closest;
     }
 
     /// <summary>
@@ -144,7 +245,6 @@ public class FoodDeliveryManager : MonoBehaviour
         }
         else
         {
-            // Intentar encontrar GameObject "City"
             GameObject city = GameObject.Find("City");
             if (city != null)
             {
@@ -189,7 +289,7 @@ public class FoodDeliveryManager : MonoBehaviour
             }
         }
 
-        // Si ya hay un destino activo previo, apagarlo
+        // Si ya hay un destino previo activo, apagarlo
         if (CurrentDestination != null)
         {
             CurrentDestination.SetActiveDestination(false);
@@ -221,7 +321,7 @@ public class FoodDeliveryManager : MonoBehaviour
         CurrentDestination.SetActiveDestination(true);
         CurrentDestination.OnItemDelivered.AddListener(HandleItemDelivered);
 
-        CurrentState = (targetFoodItem != null && targetFoodItem.IsBeingCarried)
+        CurrentState = IsAnyFoodInTransit()
             ? DeliveryState.InTransit
             : DeliveryState.WaitingForPickup;
 
@@ -232,22 +332,19 @@ public class FoodDeliveryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Monitorea el estado de transporte de la comida.
+    /// Monitorea el estado de transporte de la comida en tiempo real.
     /// </summary>
     private void UpdateDeliveryState()
     {
         if (CurrentState == DeliveryState.Completed || CurrentDestination == null) return;
 
-        if (targetFoodItem != null)
+        if (IsAnyFoodInTransit())
         {
-            if (targetFoodItem.IsBeingCarried || targetFoodItem.IsStoredInCargo)
-            {
-                CurrentState = DeliveryState.InTransit;
-            }
-            else
-            {
-                CurrentState = DeliveryState.WaitingForPickup;
-            }
+            CurrentState = DeliveryState.InTransit;
+        }
+        else
+        {
+            CurrentState = DeliveryState.WaitingForPickup;
         }
     }
 
@@ -269,21 +366,30 @@ public class FoodDeliveryManager : MonoBehaviour
 
     /// <summary>
     /// Intenta entregar el ítem si el jugador está en la zona de entrega de la casa activa.
+    /// Admite tanto la olla sostenida en brazos como una olla depositada en el área de la puerta.
     /// </summary>
     public bool TryDeliverCurrentItem()
     {
         if (CurrentDestination == null || !CurrentDestination.IsPlayerInZone) return false;
 
         FindPlayerReferences();
-        if (cachedPlayerPickup == null) return false;
 
-        PickableItem carriedItem = cachedPlayerPickup.CurrentItem;
-        if (carriedItem == null) return false;
-
-        // Validar si es el ítem requerido o cualquier ítem de comida
-        if (targetFoodItem == null || carriedItem == targetFoodItem)
+        // 1. Prioridad: Olla en manos del jugador
+        if (cachedPlayerPickup != null && cachedPlayerPickup.CurrentItem != null)
         {
-            bool success = CurrentDestination.Deliver(carriedItem, cachedPlayerPickup);
+            PickableItem carriedItem = cachedPlayerPickup.CurrentItem;
+            if (IsDeliverableFoodItem(carriedItem))
+            {
+                bool success = CurrentDestination.Deliver(carriedItem, cachedPlayerPickup);
+                return success;
+            }
+        }
+
+        // 2. Si el jugador no la tiene en manos, buscar si soltó una olla dentro de la zona de entrega
+        PickableItem groundPot = CurrentDestination.FindFoodItemInDeliveryZone();
+        if (groundPot != null && IsDeliverableFoodItem(groundPot))
+        {
+            bool success = CurrentDestination.Deliver(groundPot, null);
             return success;
         }
 
@@ -315,7 +421,6 @@ public class FoodDeliveryManager : MonoBehaviour
 
     /// <summary>
     /// Devuelve la distancia en metros entre el jugador/cámara y la casa destino actual.
-    /// Útil para la UI de navegación.
     /// </summary>
     public float GetDistanceToDestination()
     {

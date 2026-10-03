@@ -1051,7 +1051,7 @@ public static class CityAlignmentTool
         // 1. Escanear TODOS los colliders de la escena a menos de 25m del centro de CurvaEsquina
         Vector3 centerPt = new Vector3(-98.5f, 0.3f, 90.5f);
         sb.AppendLine("=== ALL SCENE COLLIDERS WITHIN 25m OF STREET15 CURVA ===");
-        var allSceneCols = UnityEngine.Object.FindObjectsByType<Collider>(FindObjectsSortMode.None);
+        var allSceneCols = UnityEngine.Object.FindObjectsByType<Collider>();
         foreach (var c in allSceneCols)
         {
             if (!c.enabled) continue;

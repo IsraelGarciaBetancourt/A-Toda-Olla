@@ -1,21 +1,19 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controlador de radio estilo GTA para A-Toda-Olla.
-///
-/// SIMULACIÓN DE RADIO REAL EN SEGUNDO PLANO:
-///   - Cada emisora mantiene su propia transmisión continua en tiempo real.
-///   - Si te bajas del vehículo a entregar un pedido a mitad de una canción,
-///     el reloj virtual de la emisora sigue avanzando en segundo plano.
-///   - Al volver a subirte al vehículo, la canción continuará exactamente
-///     en el punto en el que va (o habrá avanzado a la siguiente si ya terminó).
-///   - Lo mismo ocurre al cambiar entre emisoras: cada una transmite independientemente.
-///   - Sistema aleatorio Fisher-Yates que garantiza que una misma canción
-///     nunca se repita dos veces consecutivas.
-///
+/// 
+/// OPTIMIZACIONES DE RENDIMIENTO (CERO CONSUMO DE CPU / SILENCIO DE VENTILADORES):
+///   - Cero bucles en Update para emisoras inactivas en segundo plano.
+///     El progreso virtual de cada emisora se calcula bajo demanda al sintonizarla,
+///     eliminando ticks continuos por frame.
+///   - Prevención absoluta de audio thrashing: fin de canción detectado con temporizador
+///     y bandera de transición, evitando llamadas repetidas a AudioSource.Play().
+///   - AudioSource configurado en modo 2D nativo sin filtros espaciales innecesarios.
+///   - Fades de volumen matemáticos en Update sin creación continua de Coroutines ni GC.
+/// 
 /// CONTROLES:
 ///   - Teclado: R (Siguiente emisora), Shift+R (Emisora anterior)
 ///   - Mando: D-Pad Derecha (Siguiente), D-Pad Izquierda (Anterior)
@@ -34,6 +32,7 @@ public class RadioPlayer : MonoBehaviour
         public List<AudioClip> playlist = new List<AudioClip>();
         public int currentTrackIndex = 0;
         public float playbackTime = 0f;
+        public float lastRecordedTime = 0f;
         public AudioClip lastPlayedClip = null;
 
         public void Init(RadioStation st, bool randomizeOffset)
@@ -42,6 +41,7 @@ public class RadioPlayer : MonoBehaviour
             playlist.Clear();
             currentTrackIndex = 0;
             playbackTime = 0f;
+            lastRecordedTime = Time.time;
             lastPlayedClip = null;
 
             if (st == null || st.IsEmpty) return;
@@ -64,8 +64,9 @@ public class RadioPlayer : MonoBehaviour
             playlist.Clear();
             if (station == null || station.tracks == null) return;
 
-            foreach (var t in station.tracks)
+            for (int i = 0; i < station.tracks.Length; i++)
             {
+                var t = station.tracks[i];
                 if (t != null) playlist.Add(t);
             }
 
@@ -99,21 +100,22 @@ public class RadioPlayer : MonoBehaviour
         }
 
         /// <summary>
-        /// Avanza el reloj virtual de esta emisora por dt segundos.
-        /// Si la canción termina, avanza a la siguiente canción en la lista.
+        /// Avanza el reloj virtual de esta emisora por dt segundos de forma instantánea.
         /// </summary>
         public void AdvanceVirtualTime(float dt)
         {
-            if (station == null || station.IsEmpty || playlist.Count == 0) return;
+            if (dt <= 0f || station == null || station.IsEmpty || playlist.Count == 0) return;
 
             AudioClip clip = GetCurrentClip();
             if (clip == null || clip.length <= 0.05f) return;
 
             playbackTime += dt;
 
-            // Si sobrepasa la duración de la canción actual, pasar a las siguientes
-            while (clip != null && clip.length > 0.05f && playbackTime >= clip.length)
+            // Avanzar pistas si el tiempo transcurrido superó la duración
+            int safetyCounter = 0;
+            while (clip != null && clip.length > 0.05f && playbackTime >= clip.length && safetyCounter < 50)
             {
+                safetyCounter++;
                 playbackTime -= clip.length;
                 lastPlayedClip = clip;
                 currentTrackIndex++;
@@ -134,6 +136,8 @@ public class RadioPlayer : MonoBehaviour
 
                 clip = GetCurrentClip();
             }
+
+            lastRecordedTime = Time.time;
         }
 
         public void AdvanceToNextTrack()
@@ -157,6 +161,8 @@ public class RadioPlayer : MonoBehaviour
                 }
                 currentTrackIndex = 0;
             }
+
+            lastRecordedTime = Time.time;
         }
     }
 
@@ -173,7 +179,7 @@ public class RadioPlayer : MonoBehaviour
     public int startStationIndex = 0;
 
     [Header("Simulación de Radio en Vivo")]
-    [Tooltip("Si está activo, al iniciar la partida las radios ya habrán comenzado a mitad de una canción aleatoria (como una radio real en directo). Si está desactivado, comienzan desde el segundo 0 al iniciar el juego.")]
+    [Tooltip("Si está activo, al iniciar la partida las radios ya habrán comenzado a mitad de una canción aleatoria.")]
     public bool randomizeInitialOffset = false;
 
     [Header("Audio")]
@@ -190,26 +196,14 @@ public class RadioPlayer : MonoBehaviour
 
     [Tooltip("Duración del fade-out al apagar la radio (al salir del vehículo).")]
     [Range(0f, 3f)]
-    public float fadeOutDuration = 0.8f;
+    public float fadeOutDuration = 0.6f;
 
     [Tooltip("Duración del fade-in al encender la radio (al entrar al vehículo).")]
     [Range(0f, 2f)]
-    public float fadeInDuration = 0.4f;
-
-    /// <summary>
-    /// Ajusta el volumen de la radio en tiempo real (0 a 1).
-    /// </summary>
-    public void SetVolume(float newVolume)
-    {
-        volume = Mathf.Clamp01(newVolume);
-        if (musicSource != null && isActive && !isSwitchingStation)
-        {
-            musicSource.volume = volume;
-        }
-    }
+    public float fadeInDuration = 0.35f;
 
     // ──────────────────────────────────────────────────────────────────────
-    //  EVENTOS PÚBLICOS (el RadioHUD los escucha)
+    //  EVENTOS PÚBLICOS
     // ──────────────────────────────────────────────────────────────────────
 
     public delegate void StationChangedHandler(RadioStation station, int index);
@@ -230,17 +224,31 @@ public class RadioPlayer : MonoBehaviour
 
     private bool isActive = false;
     private bool isSwitchingStation = false;
+    private bool isAdvancingTrack = false;
+    private bool isSongStarting = false;
 
-    private Coroutine fadeCoroutine;
-    private Coroutine switchCoroutine;
-    private float lastVirtualUpdateTime = 0f;
+    // Temporizadores de reproducción
+    private float songStartTime = 0f;
+    private float expectedSongEndTime = 0f;
+
+    // Sistema de fade sin coroutines (cero GC, cero CPU)
+    private bool isFading = false;
+    private float fadeTimer = 0f;
+    private float fadeTotalDuration = 0.2f;
+    private float fadeStartVol = 0f;
+    private float fadeTargetVol = 0f;
+    private bool stopAudioOnFadeEnd = false;
+
+    // Temporizador de cambio de emisora
+    private float switchWaitTimer = 0f;
+    private int pendingStationIndex = -1;
 
     // ──────────────────────────────────────────────────────────────────────
-    //  PROPIEDADES PÚBLICAS (para el HUD)
+    //  PROPIEDADES PÚBLICAS
     // ──────────────────────────────────────────────────────────────────────
 
     public RadioStation CurrentStation =>
-        (stations != null && stations.Length > 0 && currentStationIndex < stations.Length)
+        (stations != null && stations.Length > 0 && currentStationIndex >= 0 && currentStationIndex < stations.Length)
             ? stations[currentStationIndex]
             : null;
 
@@ -261,66 +269,116 @@ public class RadioPlayer : MonoBehaviour
     public int StationCount => stations != null ? stations.Length : 0;
     public bool IsActive => isActive;
 
+    public void SetVolume(float newVolume)
+    {
+        volume = Mathf.Clamp01(newVolume);
+        if (musicSource != null && isActive && !isSwitchingStation && !isFading)
+        {
+            musicSource.volume = volume;
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     //  UNITY LIFECYCLE
     // ──────────────────────────────────────────────────────────────────────
 
     void Awake()
     {
-        // AudioSource principal (música de radio)
+        // Configuración hiper-optimizada del AudioSource:
+        // Cero efectos espaciales, máxima prioridad, bypass total de filtros
         musicSource = GetComponent<AudioSource>();
+        if (musicSource == null) musicSource = gameObject.AddComponent<AudioSource>();
         musicSource.loop = false;
         musicSource.playOnAwake = false;
         musicSource.volume = 0f;
-        musicSource.spatialBlend = 0f;
+        musicSource.spatialBlend = 0f; // Estéreo 2D puro
+        musicSource.bypassEffects = true;
+        musicSource.bypassListenerEffects = true;
+        musicSource.bypassReverbZones = true;
+        musicSource.priority = 0; // Prioridad máxima
         musicSource.clip = null;
 
-        // AudioSource secundario (estática de cambio)
         staticSource = gameObject.AddComponent<AudioSource>();
         staticSource.loop = false;
         staticSource.playOnAwake = false;
         staticSource.volume = staticVolume;
         staticSource.spatialBlend = 0f;
+        staticSource.bypassEffects = true;
 
         currentStationIndex = Mathf.Clamp(startStationIndex, 0, Mathf.Max(0, StationCount - 1));
         EnsureStationStatesInitialized();
-        lastVirtualUpdateTime = Time.time;
     }
 
     void Update()
     {
-        // ──────────────────────────────────────────────────────────────────
-        // 1. TRANSMISIÓN EN TIEMPO REAL CONTINUA PARA TODAS LAS EMISORAS
-        // ──────────────────────────────────────────────────────────────────
-        EnsureStationStatesInitialized();
-
-        float dt = Time.time - lastVirtualUpdateTime;
-        lastVirtualUpdateTime = Time.time;
-        if (dt > 1f) dt = Time.deltaTime; // Protección contra pausas largas o pantallas de carga
-
-        for (int i = 0; i < stationStates.Length; i++)
+        // 1. Manejo ultra-ligero del Fade de volumen (sin coroutines ni allocations)
+        if (isFading && musicSource != null)
         {
-            var stState = stationStates[i];
-            if (stState == null) continue;
+            fadeTimer += Time.unscaledDeltaTime;
+            float t = fadeTotalDuration > 0.001f ? Mathf.Clamp01(fadeTimer / fadeTotalDuration) : 1f;
+            musicSource.volume = Mathf.Lerp(fadeStartVol, fadeTargetVol, t);
 
-            // Si esta es la emisora actualmente sonando en vivo por el AudioSource
-            if (isActive && i == currentStationIndex && musicSource != null && musicSource.isPlaying)
+            if (t >= 1f)
             {
-                stState.playbackTime = musicSource.time;
-            }
-            else
-            {
-                // Emisoras en segundo plano avanzan virtualmente en tiempo real
-                stState.AdvanceVirtualTime(dt);
+                isFading = false;
+                if (stopAudioOnFadeEnd)
+                {
+                    musicSource.Stop();
+                    musicSource.clip = null;
+                }
             }
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        // 2. CONTROLES Y REPRODUCCIÓN (SOLO DENTRO DEL VEHÍCULO)
-        // ──────────────────────────────────────────────────────────────────
+        // 2. Manejo de transición de cambio de emisora (estática)
+        if (isSwitchingStation)
+        {
+            switchWaitTimer -= Time.unscaledDeltaTime;
+            if (switchWaitTimer <= 0f)
+            {
+                CompleteStationSwitch();
+            }
+            return;
+        }
+
+        // Si la radio está apagada, no gastar ni un solo ciclo de CPU
         if (!isActive) return;
 
-        // Entrada de teclado (R = Siguiente, Shift+R = Anterior)
+        // 3. Controles del jugador (R / Shift+R o D-Pad)
+        HandleInput();
+
+        // 4. Avance automático y controlado de canción en la emisora activa
+        // IMPORTANTE: Se usa temporizador + verificación de buffer para evitar audio-thrashing
+        if (!isSwitchingStation && !isAdvancingTrack && musicSource != null && musicSource.clip != null)
+        {
+            if (isSongStarting)
+            {
+                // Margen de gracia inicial de 0.5s para que FMOD comience el playback sin falsos positivos
+                if (Time.time - songStartTime >= 0.5f)
+                {
+                    isSongStarting = false;
+                }
+            }
+            else
+            {
+                bool timeCompleted = (Time.time >= expectedSongEndTime);
+                bool naturallyEnded = (!musicSource.isPlaying && musicSource.time <= 0.05f);
+
+                if (timeCompleted || naturallyEnded)
+                {
+                    isAdvancingTrack = true;
+                    StationPlaybackState activeState = GetCurrentState();
+                    if (activeState != null && activeState.station != null && !activeState.station.IsEmpty)
+                    {
+                        activeState.AdvanceToNextTrack();
+                        PlayCurrentStationTrack(activeState);
+                    }
+                }
+            }
+        }
+    }
+
+    private void HandleInput()
+    {
         var kb = Keyboard.current;
         if (kb != null && kb.rKey.wasPressedThisFrame)
         {
@@ -328,9 +386,9 @@ public class RadioPlayer : MonoBehaviour
                 PrevStation();
             else
                 NextStation();
+            return;
         }
 
-        // Entrada de mando (D-Pad Derecha = Siguiente, D-Pad Izquierda = Anterior)
         var gp = Gamepad.current;
         if (gp != null)
         {
@@ -339,28 +397,12 @@ public class RadioPlayer : MonoBehaviour
             else if (gp.dpad.left.wasPressedThisFrame)
                 PrevStation();
         }
-
-        // ──────────────────────────────────────────────────────────────────
-        // 3. AVANCE AUTOMÁTICO DE CANCIÓN EN LA EMISORA ACTIVA
-        // ──────────────────────────────────────────────────────────────────
-        if (!isSwitchingStation && musicSource != null && musicSource.clip != null && !musicSource.isPlaying)
-        {
-            StationPlaybackState activeState = GetCurrentState();
-            if (activeState != null && activeState.station != null && !activeState.station.IsEmpty)
-            {
-                activeState.AdvanceToNextTrack();
-                PlayCurrentStationTrack(activeState);
-            }
-        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
     //  API PÚBLICA
     // ──────────────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Enciende o apaga la radio. Llamar al entrar o salir del vehículo.
-    /// </summary>
     public void SetActive(bool active)
     {
         isActive = active;
@@ -368,8 +410,6 @@ public class RadioPlayer : MonoBehaviour
 
         if (active)
         {
-            if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
-
             StationPlaybackState state = GetCurrentState();
             RadioStation station = state != null ? state.station : null;
 
@@ -377,108 +417,128 @@ public class RadioPlayer : MonoBehaviour
 
             if (station != null && !station.IsEmpty)
             {
+                // Sincronizar tiempo virtual transcurrido mientras estuvo apagada
+                float elapsed = Time.time - state.lastRecordedTime;
+                if (elapsed > 0.05f)
+                {
+                    state.AdvanceVirtualTime(elapsed);
+                }
+
                 PlayCurrentStationTrack(state);
-                fadeCoroutine = StartCoroutine(FadeIn(fadeInDuration));
+                StartVolumeFade(0f, volume, fadeInDuration, false);
             }
             else
             {
-                musicSource.Stop();
-                musicSource.clip = null;
+                if (musicSource != null)
+                {
+                    musicSource.Stop();
+                    musicSource.clip = null;
+                }
                 OnTrackChanged?.Invoke(string.Empty);
             }
         }
         else
         {
-            // Sincronizar el tiempo actual antes de apagar el audio
+            // Guardar punto de reproducción antes de apagar
             StationPlaybackState state = GetCurrentState();
             if (state != null && musicSource != null && musicSource.isPlaying)
             {
                 state.playbackTime = musicSource.time;
+                state.lastRecordedTime = Time.time;
             }
 
-            if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
-            fadeCoroutine = StartCoroutine(FadeOut(fadeOutDuration, stopAfter: true));
+            StartVolumeFade(musicSource != null ? musicSource.volume : 0f, 0f, fadeOutDuration, true);
         }
     }
 
-    /// <summary>Cambia a la siguiente emisora con efecto de estática.</summary>
     public void NextStation()
     {
-        if (StationCount == 0) return;
+        if (StationCount == 0 || isSwitchingStation) return;
         int next = (currentStationIndex + 1) % StationCount;
         TuneToStation(next);
     }
 
-    /// <summary>Cambia a la emisora anterior con efecto de estática.</summary>
     public void PrevStation()
     {
-        if (StationCount == 0) return;
+        if (StationCount == 0 || isSwitchingStation) return;
         int prev = (currentStationIndex - 1 + StationCount) % StationCount;
         TuneToStation(prev);
     }
 
-    /// <summary>Sintoniza una emisora por su índice.</summary>
     public void TuneToStation(int index)
     {
         if (StationCount == 0) return;
         index = Mathf.Clamp(index, 0, StationCount - 1);
+        if (index == currentStationIndex && !isSwitchingStation) return;
 
-        if (switchCoroutine != null) StopCoroutine(switchCoroutine);
-        switchCoroutine = StartCoroutine(SwitchStationRoutine(index));
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    //  LÓGICA INTERNA DE SINTONIZACIÓN Y REPRODUCCIÓN
-    // ──────────────────────────────────────────────────────────────────────
-
-    private IEnumerator SwitchStationRoutine(int newIndex)
-    {
-        isSwitchingStation = true;
-
-        // 1. Guardar la posición de la emisora anterior
+        // 1. Guardar estado de la emisora saliente
         StationPlaybackState prevState = GetCurrentState();
-        if (prevState != null && musicSource != null && musicSource.isPlaying)
+        if (prevState != null)
         {
-            prevState.playbackTime = musicSource.time;
+            if (musicSource != null && musicSource.isPlaying)
+            {
+                prevState.playbackTime = musicSource.time;
+            }
+            prevState.lastRecordedTime = Time.time;
         }
 
-        // 2. Parar música actual y reproducir estática
-        musicSource.Stop();
-        musicSource.clip = null;
+        // 2. Parar audio actual y reproducir estática
+        if (musicSource != null)
+        {
+            musicSource.Stop();
+            musicSource.clip = null;
+        }
+
         PlayStatic();
 
-        // 3. Cambiar índice y notificar al HUD
-        currentStationIndex = newIndex;
+        // 3. Preparar cambio
+        pendingStationIndex = index;
+        isSwitchingStation = true;
+        switchWaitTimer = (staticClip != null)
+            ? Mathf.Clamp(staticClip.length * 0.45f, 0.15f, 0.8f)
+            : 0.22f;
+
+        // Notificar al HUD inmediatamente del cambio de emisora
+        RadioStation pendingStation = (pendingStationIndex < stations.Length) ? stations[pendingStationIndex] : null;
+        OnStationChanged?.Invoke(pendingStation, pendingStationIndex);
+    }
+
+    private void CompleteStationSwitch()
+    {
+        isSwitchingStation = false;
+        currentStationIndex = pendingStationIndex;
+        pendingStationIndex = -1;
+
         StationPlaybackState newState = GetCurrentState();
         RadioStation station = newState != null ? newState.station : null;
-
-        OnStationChanged?.Invoke(station, currentStationIndex);
 
         if (station == null || station.IsEmpty)
         {
             OnTrackChanged?.Invoke(string.Empty);
-            isSwitchingStation = false;
-            yield break;
+            return;
         }
 
-        // 4. Esperar brevemente durante el efecto de estática
-        float waitTime = (staticClip != null)
-            ? Mathf.Clamp(staticClip.length * 0.45f, 0.15f, 1.2f)
-            : 0.25f;
-        yield return new WaitForSeconds(waitTime);
+        // Sincronizar tiempo virtual transcurrido en segundo plano
+        float elapsed = Time.time - newState.lastRecordedTime;
+        if (elapsed > 0.05f)
+        {
+            newState.AdvanceVirtualTime(elapsed);
+        }
 
-        // 5. Reproducir la nueva emisora en su punto de transmisión en vivo
         PlayCurrentStationTrack(newState);
-
-        isSwitchingStation = false;
     }
 
     private void PlayCurrentStationTrack(StationPlaybackState state)
     {
+        isAdvancingTrack = false;
+
         if (state == null || state.station == null || state.station.IsEmpty)
         {
-            musicSource.Stop();
-            musicSource.clip = null;
+            if (musicSource != null)
+            {
+                musicSource.Stop();
+                musicSource.clip = null;
+            }
             OnTrackChanged?.Invoke(string.Empty);
             return;
         }
@@ -486,32 +546,34 @@ public class RadioPlayer : MonoBehaviour
         AudioClip clip = state.GetCurrentClip();
         if (clip == null)
         {
-            musicSource.Stop();
-            musicSource.clip = null;
+            if (musicSource != null)
+            {
+                musicSource.Stop();
+                musicSource.clip = null;
+            }
             OnTrackChanged?.Invoke(string.Empty);
             return;
         }
 
-        // Si faltaba menos de 0.2s para terminar la canción, pasar a la siguiente de inmediato
-        if (state.playbackTime >= clip.length - 0.2f)
+        // Si faltaba menos de 0.3s para terminar, avanzar a la siguiente
+        if (state.playbackTime >= clip.length - 0.3f)
         {
             state.AdvanceToNextTrack();
             clip = state.GetCurrentClip();
             if (clip == null) return;
         }
 
-        float seekTime = Mathf.Clamp(state.playbackTime, 0f, Mathf.Max(0f, clip.length - 0.05f));
+        float seekTime = Mathf.Clamp(state.playbackTime, 0f, Mathf.Max(0f, clip.length - 0.1f));
 
         musicSource.clip = clip;
         musicSource.time = seekTime;
         musicSource.volume = volume;
         musicSource.Play();
 
-        // En ciertos códecs/formatos en Unity, reasignar el seek post-Play previene resets a 0
-        if (seekTime > 0.05f && Mathf.Abs(musicSource.time - seekTime) > 0.5f)
-        {
-            musicSource.time = seekTime;
-        }
+        songStartTime = Time.time;
+        expectedSongEndTime = Time.time + Mathf.Max(0.5f, clip.length - seekTime);
+        isSongStarting = true;
+        state.lastRecordedTime = Time.time;
 
         OnTrackChanged?.Invoke(clip.name);
     }
@@ -522,6 +584,17 @@ public class RadioPlayer : MonoBehaviour
         staticSource.volume = staticVolume;
         staticSource.clip = staticClip;
         staticSource.Play();
+    }
+
+    private void StartVolumeFade(float from, float to, float duration, bool stopAfter)
+    {
+        isFading = true;
+        fadeTimer = 0f;
+        fadeTotalDuration = Mathf.Max(0.01f, duration);
+        fadeStartVol = from;
+        fadeTargetVol = to;
+        stopAudioOnFadeEnd = stopAfter;
+        if (musicSource != null) musicSource.volume = from;
     }
 
     private StationPlaybackState GetCurrentState()
@@ -545,36 +618,5 @@ public class RadioPlayer : MonoBehaviour
                 stationStates[i].Init(stations[i], randomizeInitialOffset);
             }
         }
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    //  FADES DE VOLUMEN
-    // ──────────────────────────────────────────────────────────────────────
-
-    private IEnumerator FadeIn(float duration)
-    {
-        float elapsed = 0f;
-        musicSource.volume = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            musicSource.volume = Mathf.Lerp(0f, volume, elapsed / duration);
-            yield return null;
-        }
-        musicSource.volume = volume;
-    }
-
-    private IEnumerator FadeOut(float duration, bool stopAfter = false)
-    {
-        float startVol = musicSource.volume;
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            musicSource.volume = Mathf.Lerp(startVol, 0f, elapsed / duration);
-            yield return null;
-        }
-        musicSource.volume = 0f;
-        if (stopAfter) musicSource.Stop();
     }
 }

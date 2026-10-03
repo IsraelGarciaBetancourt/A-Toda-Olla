@@ -35,12 +35,6 @@ public class VehicleController : MonoBehaviour
     [Tooltip("Capas consideradas suelo / pista.")]
     public LayerMask roadLayerMask = ~0;
 
-    [Header("Bevel Colliders (Bordes Redondeados)")]
-    [Tooltip("Agrega esferas en las 4 esquinas inferiores para que el vehículo suba sobre veredas en lugar de chocarse.")]
-    public bool enableBevelColliders = true;
-
-    [Tooltip("Radio de los colliders esféricos en las esquinas. Ajusta si el vehículo se entierra o flota.")]
-    public float bevelRadius = 0.18f;
 
     [Header("Camera Settings")]
     [Tooltip("Arrastra aquí la cámara del camión")]
@@ -139,17 +133,9 @@ public class VehicleController : MonoBehaviour
         // Calcular dimensiones para el step assist y los bevel colliders
         CalculateVehicleBounds();
 
-        // Agregar colliders esféricos en las esquinas inferiores del vehículo
-        // para que suba suavemente sobre veredas (efecto "bisel" o borde redondeado)
-        if (enableBevelColliders)
-        {
-            AddBevelColliders();
-        }
+        // Limpiar colliders esféricos previos
+        RemoveBevelColliders();
 
-        // IMPORTANTE: Aplicar el material resbaloso DESPUÉS de crear los bevel colliders,
-        // para que todos los colliders (incluyendo los recién creados) lo reciban.
-        // BUG FIX: Antes se llamaba antes de AddBevelColliders → los bevel spheres quedaban
-        // con fricción por defecto (0.6) y se enganchaban en las juntas de tiles.
         ApplyFrictionlessMaterial();
 
         // Si tenemos cámara, la preparamos para el seguimiento suave
@@ -560,105 +546,23 @@ public class VehicleController : MonoBehaviour
     }
 
     /// <summary>
-    /// Crea un PERÍMETRO COMPLETO de SphereColliders a lo largo de los bordes
-    /// inferiores del vehículo (frente, trasera, laterales).
-    ///
-    /// Con solo 4 esferas en las esquinas, la arista frontal del BoxCollider
-    /// del Piso sigue siendo una línea recta a 90° que se engancha en las
-    /// juntas de tiles. Con un perímetro denso, el perfil inferior del vehículo
-    /// es prácticamente ovalado → desliza sobre cualquier junta sin trabarse.
-    ///
-    /// Densidad controlada por bevelSteps (por defecto: 1 esfera por cada
-    /// ~bevelRadius*1.5 metros de arista).
+    /// Elimina todas las esferas de biselado creadas en el vehículo.
     /// </summary>
-    private void AddBevelColliders()
+    public void RemoveBevelColliders()
     {
-        if (!boundsCalculated) CalculateVehicleBounds();
-
-        // Reutilizar el material resbaloso ya creado por ApplyFrictionlessMaterial()
-        // (fricción 0.02, bounciness 0, combine=Minimum)
-        PhysicsMaterial mat = _vehicleSlipMat;
-        if (mat == null)
+        var toRemove = new System.Collections.Generic.List<GameObject>();
+        for (int i = 0; i < transform.childCount; i++)
         {
-            mat = new PhysicsMaterial("BevelSlip")
+            Transform child = transform.GetChild(i);
+            if (child != null && child.name.StartsWith("Bevel_"))
             {
-                dynamicFriction = 0.0f,
-                staticFriction  = 0.0f,
-                bounciness      = 0f,
-                frictionCombine = PhysicsMaterialCombine.Minimum,
-                bounceCombine   = PhysicsMaterialCombine.Minimum
-            };
+                toRemove.Add(child.gameObject);
+            }
         }
-
-        float r  = bevelRadius;
-        float cY = vehicleBottomY + r;           // altura del centro de las esferas
-        float fZ = vehicleFrontZ  - r * 0.4f;   // borde frontal (ligeramente dentro)
-        float rZ = vehicleRearZ   + r * 0.4f;   // borde trasero
-        float lX = -(vehicleHalfWidth - r * 0.4f); // lateral izquierdo
-        float rxX =  (vehicleHalfWidth - r * 0.4f); // lateral derecho
-
-        // --- Calcular cuántas esferas caben a lo largo de cada arista ---
-        // Paso entre centros: 1.4 * radio → ligera superposición para no dejar huecos
-        float spacing = r * 1.4f;
-
-        // Ancho disponible para las esferas del borde frontal/trasero
-        float widthSpan  = rxX - lX;
-        // Longitud disponible para los bordes laterales
-        float lengthSpan = fZ - rZ;
-
-        int stepsW = Mathf.Max(1, Mathf.RoundToInt(widthSpan  / spacing));
-        int stepsL = Mathf.Max(1, Mathf.RoundToInt(lengthSpan / spacing));
-
-        var positions = new System.Collections.Generic.List<(Vector3 pos, string name)>();
-
-        // --- BORDE FRONTAL (fila de esferas en Z = fZ, barriendo X) ---
-        for (int i = 0; i <= stepsW; i++)
+        for (int i = 0; i < toRemove.Count; i++)
         {
-            float t = stepsW > 0 ? (float)i / stepsW : 0.5f;
-            float x = Mathf.Lerp(lX, rxX, t);
-            positions.Add((new Vector3(x, cY, fZ), $"Bevel_F{i:00}"));
-        }
-
-        // --- BORDE TRASERO (fila de esferas en Z = rZ, barriendo X) ---
-        for (int i = 0; i <= stepsW; i++)
-        {
-            float t = stepsW > 0 ? (float)i / stepsW : 0.5f;
-            float x = Mathf.Lerp(lX, rxX, t);
-            positions.Add((new Vector3(x, cY, rZ), $"Bevel_R{i:00}"));
-        }
-
-        // --- BORDE LATERAL IZQUIERDO (barriendo Z, sin repetir esquinas) ---
-        for (int i = 1; i < stepsL; i++)
-        {
-            float t = (float)i / stepsL;
-            float z = Mathf.Lerp(fZ, rZ, t);
-            positions.Add((new Vector3(lX, cY, z), $"Bevel_L{i:00}"));
-        }
-
-        // --- BORDE LATERAL DERECHO ---
-        for (int i = 1; i < stepsL; i++)
-        {
-            float t = (float)i / stepsL;
-            float z = Mathf.Lerp(fZ, rZ, t);
-            positions.Add((new Vector3(rxX, cY, z), $"Bevel_Rx{i:00}"));
-        }
-
-        // --- Crear / reutilizar los GameObjects de bevel ---
-        foreach (var (localPos, bName) in positions)
-        {
-            Transform existing = transform.Find(bName);
-            GameObject bGO = existing != null ? existing.gameObject : new GameObject(bName);
-
-            bGO.transform.SetParent(transform, false);
-            bGO.transform.localPosition = localPos;
-            bGO.transform.localRotation = Quaternion.identity;
-            bGO.layer = gameObject.layer;
-
-            SphereCollider sc = bGO.GetComponent<SphereCollider>();
-            if (sc == null) sc = bGO.AddComponent<SphereCollider>();
-            sc.radius         = r;
-            sc.center         = Vector3.zero;
-            sc.sharedMaterial = mat;
+            if (Application.isPlaying) Destroy(toRemove[i]);
+            else DestroyImmediate(toRemove[i]);
         }
     }
 

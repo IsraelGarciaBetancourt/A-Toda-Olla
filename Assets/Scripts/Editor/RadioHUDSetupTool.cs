@@ -14,7 +14,7 @@ public static class RadioHUDSetupTool
     {
         // ── 1. Buscar HUDCanvas ───────────────────────────────────────────
         Canvas hudCanvas = null;
-        foreach (Canvas c in Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        foreach (Canvas c in Object.FindObjectsByType<Canvas>())
         {
             if (c.name == "HUDCanvas") { hudCanvas = c; break; }
         }

@@ -17,12 +17,18 @@ public class PickableItem : MonoBehaviour
     [Tooltip("Rotación relativa en ángulos Euler cuando el jugador lo lleva en brazos.")]
     public Vector3 holdRotation = Vector3.zero;
 
+    [Header("Food / Delivery Data")]
+    [Tooltip("¿Este ítem es apto para entregarse como pedido de comida?")]
+    public bool isDeliverableFood = true;
+
     [Header("State (Solo Lectura)")]
     [SerializeField] private bool isBeingCarried = false;
     [SerializeField] private bool isStoredInCargo = false;
+    [SerializeField] private bool isDelivered = false;
 
     public bool IsBeingCarried => isBeingCarried;
     public bool IsStoredInCargo => isStoredInCargo;
+    public bool IsDelivered => isDelivered;
 
     private Rigidbody rb;
     private Collider[] itemColliders;
@@ -93,6 +99,34 @@ public class PickableItem : MonoBehaviour
             // Poner el Rigidbody en reposo instantáneo (Sleep) para que no rebote ni ruede
             rb.Sleep();
         }
+    }
+
+    /// <summary>
+    /// Marca el ítem como entregado con éxito en una casa.
+    /// Fija su posición, apaga las físicas y desactiva el script para que no se pueda volver a recoger.
+    /// </summary>
+    public void MarkAsDelivered()
+    {
+        isDelivered = true;
+        isBeingCarried = false;
+        isStoredInCargo = false;
+
+        transform.SetParent(null);
+
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.Sleep();
+        }
+
+        // Dejar colliders sólidos para que repose en el suelo
+        SetCollidersTrigger(false);
+
+        // Desactivar el componente PickableItem para que los raycasts lo ignoren
+        this.enabled = false;
     }
 
     /// <summary>

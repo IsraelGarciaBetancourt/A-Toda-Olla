@@ -53,6 +53,7 @@ public class PauseMenuController : MonoBehaviour
     private VehicleController cachedVehicleController;
     private RadioPlayer cachedRadioPlayer;
     private BigMapController cachedBigMap;
+    private MechanicWorkshopUI cachedMechanicUI;
 
     void Awake()
     {
@@ -94,6 +95,13 @@ public class PauseMenuController : MonoBehaviour
         // 1. Si el mapa grande está abierto, la tecla ESC debe cerrar el mapa, no abrir la pausa
         if (cachedBigMap == null) cachedBigMap = Object.FindAnyObjectByType<BigMapController>();
         if (cachedBigMap != null && cachedBigMap.IsOpen)
+        {
+            return;
+        }
+
+        // 1.5. Si el taller mecánico está abierto, la tecla ESC lo cierra a él, no abrir la pausa
+        if (cachedMechanicUI == null) cachedMechanicUI = Object.FindAnyObjectByType<MechanicWorkshopUI>();
+        if (cachedMechanicUI != null && cachedMechanicUI.IsOpen)
         {
             return;
         }

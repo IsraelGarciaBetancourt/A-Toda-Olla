@@ -155,14 +155,18 @@ public class DeliveryNavigationHUD : MonoBehaviour
         switch (deliveryManager.CurrentState)
         {
             case FoodDeliveryManager.DeliveryState.WaitingForPickup:
-                float distToFood = 0f;
-                if (deliveryManager.targetFoodItem != null)
+                PickableItem nearestFood = deliveryManager.GetNearestAvailableFoodItem(playerPos);
+                if (nearestFood != null)
                 {
-                    distToFood = Vector3.Distance(playerPos, deliveryManager.targetFoodItem.transform.position);
+                    float distToFood = Vector3.Distance(playerPos, nearestFood.transform.position);
+                    missionText.text = distToFood > 5f
+                        ? $"RECOGE UNA OLLA CON COMIDA ({Mathf.RoundToInt(distToFood)}m) -> DESTINO: {target.houseName.ToUpper()}"
+                        : $"RECOGE UNA OLLA CON COMIDA -> DESTINO: {target.houseName.ToUpper()}";
                 }
-                missionText.text = distToFood > 5f
-                    ? $"RECOGE LA OLLA CON COMIDA ({Mathf.RoundToInt(distToFood)}m) -> DESTINO: {target.houseName.ToUpper()}"
-                    : $"RECOGE LA OLLA CON COMIDA -> DESTINO: {target.houseName.ToUpper()}";
+                else
+                {
+                    missionText.text = $"RECOGE UNA OLLA CON COMIDA -> DESTINO: {target.houseName.ToUpper()}";
+                }
                 missionText.color = waitingColor;
                 break;
 

@@ -78,7 +78,7 @@ public static class MinimapSetupTool
 
         // --- HUDCanvas ---
         Canvas hudCanvas = null;
-        foreach (Canvas c in Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        foreach (Canvas c in Object.FindObjectsByType<Canvas>())
             if (c.name == "HUDCanvas") { hudCanvas = c; break; }
 
         if (hudCanvas == null)

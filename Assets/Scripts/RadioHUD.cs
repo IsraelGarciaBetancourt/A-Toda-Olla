@@ -1,28 +1,16 @@
-using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
 /// HUD de radio estilo GTA Vice City para A-Toda-Olla.
-///
-/// Aparece en la parte superior central de la pantalla al cambiar de emisora
-/// (o al entrar al vehículo con la radio activa).
-/// Muestra:
-///   - Nombre de la emisora  (en el color configurado en RadioStation)
-///   - Nombre de la canción  (en blanco/gris claro)
-///
-/// Se desvanece automáticamente tras displayDuration segundos.
-/// Si cambia la emisora antes de desvanecerse, reinicia el timer.
-/// Al cambiar de canción dentro de la misma emisora, solo actualiza el texto
-/// sin reiniciar el timer completo.
+/// 
+/// OPTIMIZACIONES DE RENDIMIENTO:
+///   - Cero Coroutines: control de fade mediante temporizadores en LateUpdate.
+///   - Cero allocations de memoria (evita recolector de basura de Unity).
+///   - Comprobación de texto antes de reasignar a TextMeshPro para no reconstruir mallas innecesariamente.
 /// </summary>
 public class RadioHUD : MonoBehaviour
 {
-    // ──────────────────────────────────────────────────────────────────────
-    //  INSPECTOR
-    // ──────────────────────────────────────────────────────────────────────
-
     [Header("Referencias UI")]
     [Tooltip("Panel raíz. Debe tener un CanvasGroup para el fade.")]
     public CanvasGroup panelGroup;
@@ -36,15 +24,15 @@ public class RadioHUD : MonoBehaviour
     [Header("Comportamiento")]
     [Tooltip("Tiempo en segundos que el panel permanece visible.")]
     [Range(1f, 10f)]
-    public float displayDuration = 4f;
+    public float displayDuration = 3.8f;
 
     [Tooltip("Duración del fade-in al aparecer.")]
     [Range(0.05f, 1f)]
-    public float fadeInTime = 0.25f;
+    public float fadeInTime = 0.2f;
 
     [Tooltip("Duración del fade-out al desaparecer.")]
     [Range(0.1f, 2f)]
-    public float fadeOutTime = 0.6f;
+    public float fadeOutTime = 0.5f;
 
     [Header("Textos")]
     [Tooltip("Texto mostrado cuando la radio está apagada.")]
@@ -53,19 +41,13 @@ public class RadioHUD : MonoBehaviour
     [Tooltip("Prefijo mostrado antes del nombre de la canción.")]
     public string trackPrefix = "♪  ";
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  ESTADO INTERNO
-    // ──────────────────────────────────────────────────────────────────────
-
     private RadioPlayer radioPlayer;
-    private Coroutine showCoroutine;
-
-    // ──────────────────────────────────────────────────────────────────────
-    //  UNITY LIFECYCLE
-    // ──────────────────────────────────────────────────────────────────────
+    private float displayTimer = 0f;
+    private string lastDisplayedTrack = null;
 
     void Awake()
     {
+        if (panelGroup == null) panelGroup = GetComponent<CanvasGroup>();
         if (panelGroup != null)
         {
             panelGroup.alpha = 0f;
@@ -76,16 +58,12 @@ public class RadioHUD : MonoBehaviour
 
     void Start()
     {
-        // Buscar RadioPlayer en escena
         radioPlayer = Object.FindAnyObjectByType<RadioPlayer>();
-        if (radioPlayer == null)
+        if (radioPlayer != null)
         {
-            Debug.LogWarning("[RadioHUD] No se encontró RadioPlayer en la escena. El HUD no funcionará.");
-            return;
+            radioPlayer.OnStationChanged += HandleStationChanged;
+            radioPlayer.OnTrackChanged += HandleTrackChanged;
         }
-
-        radioPlayer.OnStationChanged += HandleStationChanged;
-        radioPlayer.OnTrackChanged  += HandleTrackChanged;
     }
 
     void OnDestroy()
@@ -93,41 +71,59 @@ public class RadioHUD : MonoBehaviour
         if (radioPlayer != null)
         {
             radioPlayer.OnStationChanged -= HandleStationChanged;
-            radioPlayer.OnTrackChanged  -= HandleTrackChanged;
+            radioPlayer.OnTrackChanged -= HandleTrackChanged;
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  CALLBACKS DEL RadioPlayer
-    // ──────────────────────────────────────────────────────────────────────
+    void LateUpdate()
+    {
+        if (panelGroup == null) return;
+
+        // Temporizador de visualización
+        if (displayTimer > 0f)
+        {
+            displayTimer -= Time.unscaledDeltaTime;
+        }
+
+        // Fade suave hacia 1 o hacia 0
+        float targetAlpha = (displayTimer > 0f) ? 1f : 0f;
+        float speed = (targetAlpha > panelGroup.alpha) ? (1f / Mathf.Max(0.05f, fadeInTime)) : (1f / Mathf.Max(0.05f, fadeOutTime));
+
+        panelGroup.alpha = Mathf.MoveTowards(panelGroup.alpha, targetAlpha, Time.unscaledDeltaTime * speed);
+    }
 
     private void HandleStationChanged(RadioStation station, int index)
     {
-        // Actualizar nombre de emisora
         if (stationNameText != null)
         {
             if (station == null || station.IsEmpty)
             {
-                stationNameText.text = offStationLabel;
+                if (stationNameText.text != offStationLabel)
+                    stationNameText.text = offStationLabel;
                 stationNameText.color = Color.gray;
             }
             else
             {
-                stationNameText.text = station.stationName;
+                if (stationNameText.text != station.stationName)
+                    stationNameText.text = station.stationName;
                 stationNameText.color = station.stationColor;
             }
         }
 
-        // Limpiar canción hasta que el RadioPlayer notifique cuál toca
         if (trackNameText != null)
+        {
             trackNameText.text = string.Empty;
+        }
 
-        // Mostrar el panel (reinicia el timer si ya estaba visible)
-        ShowPanel();
+        lastDisplayedTrack = null;
+        displayTimer = displayDuration;
     }
 
     private void HandleTrackChanged(string trackName)
     {
+        if (trackName == lastDisplayedTrack) return;
+        lastDisplayedTrack = trackName;
+
         if (trackNameText != null)
         {
             trackNameText.text = string.IsNullOrEmpty(trackName)
@@ -135,66 +131,17 @@ public class RadioHUD : MonoBehaviour
                 : trackPrefix + CleanTrackName(trackName);
         }
 
-        // Si comienza una nueva canción válida, mostrar brevemente el HUD (estilo GTA)
         if (!string.IsNullOrEmpty(trackName))
         {
-            ShowPanel();
+            displayTimer = displayDuration;
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  MOSTRAR / OCULTAR PANEL
-    // ──────────────────────────────────────────────────────────────────────
-
-    private void ShowPanel()
-    {
-        if (showCoroutine != null) StopCoroutine(showCoroutine);
-        showCoroutine = StartCoroutine(ShowAndHide());
-    }
-
-    private IEnumerator ShowAndHide()
-    {
-        // Fade-in
-        yield return StartCoroutine(FadeTo(1f, fadeInTime));
-
-        // Esperar tiempo visible
-        yield return new WaitForSeconds(displayDuration);
-
-        // Fade-out
-        yield return StartCoroutine(FadeTo(0f, fadeOutTime));
-    }
-
-    private IEnumerator FadeTo(float target, float duration)
-    {
-        if (panelGroup == null) yield break;
-
-        float start = panelGroup.alpha;
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            panelGroup.alpha = Mathf.Lerp(start, target, elapsed / duration);
-            yield return null;
-        }
-        panelGroup.alpha = target;
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    //  UTILIDADES
-    // ──────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Elimina la extensión del nombre del archivo del clip si la tuviera
-    /// (Unity normalmente ya la quita, pero por si acaso).
-    /// </summary>
     private string CleanTrackName(string raw)
     {
-        if (string.IsNullOrEmpty(raw)) return raw;
-        // Quitar extensión si quedó (por ej. "cancion.mp3")
+        if (string.IsNullOrEmpty(raw)) return string.Empty;
         int dot = raw.LastIndexOf('.');
         if (dot > 0) raw = raw.Substring(0, dot);
-        // Reemplazar guiones bajos por espacios
-        raw = raw.Replace('_', ' ');
-        return raw;
+        return raw.Replace('_', ' ');
     }
 }
