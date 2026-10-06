@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4eaaafb07c82c4ef193385cd8872e95f, type: 3}
+  m_Name: VehicleUpgradeData
+  m_EditorClassIdentifier: Assembly-CSharp::VehicleUpgradeData
+  wheelLevels:
+  - levelName: "\u2606\u2606\u2606 Stock"
+    price: 0
+    turnSpeedBonus: 0
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Ruedas de f\xE1brica. Giro b\xE1sico."
+  - levelName: "\u2605\u2606\u2606 Radiales"
+    price: 300
+    turnSpeedBonus: 15
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Llantas radiales. Respuesta de direcci\xF3n mejorada."
+  - levelName: "\u2605\u2605\u2606 Performance"
+    price: 700
+    turnSpeedBonus: 35
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Compuesto performance. Giro notablemente m\xE1s r\xE1pido."
+  - levelName: "\u2605\u2605\u2605 Slick Pro"
+    price: 1400
+    turnSpeedBonus: 60
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Slicks de competici\xF3n. M\xE1xima agilidad en curvas."
+  engineLevels:
+  - levelName: "\u2606\u2606\u2606 Motor Stock"
+    price: 0
+    turnSpeedBonus: 0
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: Motor de serie. Suficiente para hacer entregas.
+  - levelName: "\u2605\u2606\u2606 Filtro & Escape"
+    price: 10
+    turnSpeedBonus: 0
+    accelerationBonus: 8
+    maxSpeedBonus: 3
+    description: "Filtro de aire y escape libre. M\xE1s respuesta al gas."
+  - levelName: "\u2605\u2605\u2606 Turbo Kit"
+    price: 20
+    turnSpeedBonus: 0
+    accelerationBonus: 18
+    maxSpeedBonus: 7
+    description: "Turbocompresor instalado. Aceleraci\xF3n y punta superiores."
+  - levelName: "\u2605\u2605\u2605 Motor Racing"
+    price: 30
+    turnSpeedBonus: 0
+    accelerationBonus: 32
+    maxSpeedBonus: 12
+    description: "Bloque de competici\xF3n. Velocidad m\xE1xima brutal."
+  thermalLevels:
+  - levelName: "\u2606\u2606\u2606 Sin Aislamiento"
+    price: 0
+    turnSpeedBonus: 0
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "La comida se enfr\xEDa r\xE1pido. \xA1Date prisa!"
+  - levelName: "\u2605\u2606\u2606 Bolsa T\xE9rmica"
+    price: 250
+    turnSpeedBonus: 0
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Bolsa t\xE9rmica b\xE1sica. Algo m\xE1s de tiempo. (pr\xF3ximamente)"
+  - levelName: "\u2605\u2605\u2606 Caja Aislante"
+    price: 600
+    turnSpeedBonus: 0
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Caja con aislante de poliestireno. Buen margen de temperatura.
+      (pr\xF3ximamente)"
+  - levelName: "\u2605\u2605\u2605 Termo Profesional"
+    price: 1200
+    turnSpeedBonus: 0
+    accelerationBonus: 0
+    maxSpeedBonus: 0
+    description: "Contenedor t\xE9rmico profesional. La comida llega caliente siempre.
+      (pr\xF3ximamente)"

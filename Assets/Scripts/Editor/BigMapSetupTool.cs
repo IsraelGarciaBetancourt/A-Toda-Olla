@@ -127,9 +127,9 @@ public static class BigMapSetupTool
         panelRootRT.offsetMax = Vector2.zero;
 
         CanvasGroup panelGroup = panelRootGO.AddComponent<CanvasGroup>();
-        panelGroup.alpha = 0f;
+        panelGroup.alpha = 1f;
         panelGroup.interactable = true;
-        panelGroup.blocksRaycasts = false;
+        panelGroup.blocksRaycasts = true;
 
         // Fondo oscuro para letterboxing en pantallas no-16:9
         GameObject dimmerGO = new GameObject("DimmerBackground", typeof(RectTransform));
@@ -314,8 +314,9 @@ public static class BigMapSetupTool
         ctrl.textureHeight = 1080;
         ctrl.fadeDuration = 0.15f;
 
-        // Iniciar oculto
-        panelRootGO.SetActive(false);
+        // En el editor se deja activo con alpha=1 para poder editarlo en Scene View.
+        // Al darle Play, BigMapController.Awake() lo oculta automáticamente.
+        panelRootGO.SetActive(true);
 
         // Guardar escena
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(

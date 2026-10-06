@@ -232,38 +232,45 @@ public class PauseMenuController : MonoBehaviour
     {
         if (panelGroup == null)
         {
-            GameObject panelGO = GameObject.Find("PauseMenuPanel");
-            if (panelGO != null) panelGroup = panelGO.GetComponent<CanvasGroup>();
+            Canvas[] allCanvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var c in allCanvases)
+            {
+                if (c.name == "HUDCanvas")
+                {
+                    Transform t = c.transform.Find("PauseMenuPanel");
+                    if (t != null)
+                    {
+                        panelGroup = t.GetComponent<CanvasGroup>();
+                        break;
+                    }
+                }
+            }
+            if (panelGroup == null)
+            {
+                var allGroups = Resources.FindObjectsOfTypeAll<CanvasGroup>();
+                foreach (var cg in allGroups)
+                {
+                    if (cg.gameObject.name == "PauseMenuPanel") { panelGroup = cg; break; }
+                }
+            }
         }
 
-        if (generalVolumeSlider == null)
+        if (panelGroup != null)
         {
-            GameObject s = GameObject.Find("Slider_General");
-            if (s != null) generalVolumeSlider = s.GetComponent<Slider>();
-        }
+            Slider[] sliders = panelGroup.GetComponentsInChildren<Slider>(true);
+            foreach (var s in sliders)
+            {
+                if (s.name.Contains("General") && generalVolumeSlider == null) generalVolumeSlider = s;
+                else if (s.name.Contains("Radio") && radioVolumeSlider == null) radioVolumeSlider = s;
+                else if (s.name.Contains("Sensibilidad") && mouseSensitivitySlider == null) mouseSensitivitySlider = s;
+            }
 
-        if (radioVolumeSlider == null)
-        {
-            GameObject s = GameObject.Find("Slider_Radio");
-            if (s != null) radioVolumeSlider = s.GetComponent<Slider>();
-        }
-
-        if (mouseSensitivitySlider == null)
-        {
-            GameObject s = GameObject.Find("Slider_Sensibilidad");
-            if (s != null) mouseSensitivitySlider = s.GetComponent<Slider>();
-        }
-
-        if (resumeButton == null)
-        {
-            GameObject b = GameObject.Find("Button_Reanudar");
-            if (b != null) resumeButton = b.GetComponent<Button>();
-        }
-
-        if (exitButton == null)
-        {
-            GameObject b = GameObject.Find("Button_Salir");
-            if (b != null) exitButton = b.GetComponent<Button>();
+            Button[] buttons = panelGroup.GetComponentsInChildren<Button>(true);
+            foreach (var b in buttons)
+            {
+                if (b.name.Contains("Reanudar") && resumeButton == null) resumeButton = b;
+                else if (b.name.Contains("Salir") && exitButton == null) exitButton = b;
+            }
         }
     }
 

@@ -56,6 +56,28 @@ public class FoodDeliveryManager : MonoBehaviour
     public int TotalDeliveriesCompleted { get; private set; } = 0;
     public int TotalMoneyEarned { get; private set; } = 0;
 
+    /// <summary>
+    /// Intenta gastar una cantidad de dinero. Devuelve true si la transacción fue exitosa.
+    /// </summary>
+    public bool SpendMoney(int amount)
+    {
+        if (amount <= 0) return true;
+        if (TotalMoneyEarned < amount) return false;
+        TotalMoneyEarned -= amount;
+        OnScoreOrMoneyChanged?.Invoke(TotalMoneyEarned);
+        return true;
+    }
+
+    /// <summary>
+    /// Añade dinero a la cuenta del jugador y notifica a la interfaz.
+    /// </summary>
+    public void AddMoney(int amount)
+    {
+        if (amount <= 0) return;
+        TotalMoneyEarned += amount;
+        OnScoreOrMoneyChanged?.Invoke(TotalMoneyEarned);
+    }
+
     // Lista interna de puntos de entrega encontrados
     private List<DeliveryPoint> availableDeliveryPoints = new List<DeliveryPoint>();
     private DeliveryPoint previousDestination = null;

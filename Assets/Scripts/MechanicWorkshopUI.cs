@@ -9,6 +9,8 @@ using TMPro;
 /// Se abre al entrar con la van al cilindro azul y mantener pulsada la tecla [F].
 /// Detiene temporalmente los controles del vehículo, muestra el cursor del ratón,
 /// y permite salir con [ESC], [F] o botón de interfaz para volver a conducir.
+///
+/// Ahora también incluye la lógica de compra de mejoras (Ruedas, Motor, Aislamiento).
 /// </summary>
 public class MechanicWorkshopUI : MonoBehaviour
 {
@@ -38,9 +40,65 @@ public class MechanicWorkshopUI : MonoBehaviour
     [Tooltip("Texto de ayuda de salida (ej: '[ESC] o [F] Volver a la ciudad').")]
     public TMP_Text exitHintText;
 
+    [Header("Dinero del Jugador")]
+    [Tooltip("Texto TMP donde se muestra el dinero real del jugador en el taller.")]
+    public TextMeshProUGUI workshopMoneyText;
+
+    // ── Sección Ruedas ──────────────────────────────────────────────────
+    [Header("Ruedas (Wheels)")]
+    [Tooltip("Texto que muestra el nivel actual de Ruedas.")]
+    public TMP_Text wheelsLevelText;
+    [Tooltip("Texto con el precio del siguiente nivel de Ruedas.")]
+    public TMP_Text wheelsPriceText;
+    [Tooltip("Texto con la descripción del siguiente nivel de Ruedas.")]
+    public TMP_Text wheelsDescText;
+    [Tooltip("Botón para comprar la siguiente mejora de Ruedas.")]
+    public Button wheelsBuyButton;
+
+    // ── Sección Motor ───────────────────────────────────────────────────
+    [Header("Motor (Engine)")]
+    [Tooltip("Texto que muestra el nivel actual de Motor.")]
+    public TMP_Text engineLevelText;
+    [Tooltip("Texto con el precio del siguiente nivel de Motor.")]
+    public TMP_Text enginePriceText;
+    [Tooltip("Texto con la descripción del siguiente nivel de Motor.")]
+    public TMP_Text engineDescText;
+    [Tooltip("Botón para comprar la siguiente mejora de Motor.")]
+    public Button engineBuyButton;
+
+    // ── Sección Aislamiento Térmico ─────────────────────────────────────
+    [Header("Aislamiento Térmico (Thermal)")]
+    [Tooltip("Texto que muestra el nivel actual de Aislamiento.")]
+    public TMP_Text thermalLevelText;
+    [Tooltip("Texto con el precio del siguiente nivel de Aislamiento.")]
+    public TMP_Text thermalPriceText;
+    [Tooltip("Texto con la descripción del siguiente nivel de Aislamiento.")]
+    public TMP_Text thermalDescText;
+    [Tooltip("Botón para comprar la siguiente mejora de Aislamiento.")]
+    public Button thermalBuyButton;
+
+    // ── Barras de Estrellas ────────────────────────────────────────────
+    [Header("Barras de Estrellas (Spritesheet)")]
+    [Tooltip("Los 4 sprites correspondientes a 0★, 1★, 2★ y 3★ del StarsBarSpriteSheet.")]
+    public Sprite[] starBarSprites = new Sprite[4];
+
+    [Tooltip("Imagen de la barra de estrellas para Ruedas.")]
+    public Image wheelsStarBar;
+    [Tooltip("Imagen de la barra de estrellas para Motor.")]
+    public Image engineStarBar;
+    [Tooltip("Imagen de la barra de estrellas para Aislamiento Térmico.")]
+    public Image thermalStarBar;
+
+    [Tooltip("Si es true, el botón se deshabilita visualmente si no hay dinero. Si es false, se puede pulsar para escuchar el sonido de error y ver el flash de dinero.")]
+    public bool disableButtonWhenNoFunds = false;
+
     [Header("Audio")]
     public AudioClip openSound;
     public AudioClip closeSound;
+    [Tooltip("Sonido al comprar una mejora con éxito.")]
+    public AudioClip purchaseSuccessSound;
+    [Tooltip("Sonido al intentar comprar sin dinero.")]
+    public AudioClip purchaseFailSound;
 
     [Header("Animación")]
     public float fadeDuration = 0.2f;
@@ -80,13 +138,67 @@ public class MechanicWorkshopUI : MonoBehaviour
             closeButton.onClick.AddListener(CloseWorkshop);
         }
 
-        // Iniciar completamente transparente y sin bloquear raycasts
+        // Cablear botones de compra
+        if (wheelsBuyButton != null)
+            wheelsBuyButton.onClick.AddListener(() => TryPurchase(UpgradeType.Wheels));
+        if (engineBuyButton != null)
+            engineBuyButton.onClick.AddListener(() => TryPurchase(UpgradeType.Engine));
+        if (thermalBuyButton != null)
+            thermalBuyButton.onClick.AddListener(() => TryPurchase(UpgradeType.ThermalInsulation));
+
+        // Iniciar completamente transparente y desactivado al arrancar el juego
         if (panelGroup != null)
         {
             panelGroup.alpha = 0f;
             panelGroup.interactable = false;
             panelGroup.blocksRaycasts = false;
+            panelGroup.gameObject.SetActive(false);
         }
+    }
+
+    void OnEnable()
+    {
+        if (FoodDeliveryManager.Instance != null)
+        {
+            FoodDeliveryManager.Instance.OnScoreOrMoneyChanged.RemoveListener(OnMoneyChanged);
+            FoodDeliveryManager.Instance.OnScoreOrMoneyChanged.AddListener(OnMoneyChanged);
+        }
+
+        if (VehicleUpgradeManager.Instance != null)
+        {
+            VehicleUpgradeManager.Instance.OnUpgradeChanged -= RefreshUpgradeUI;
+            VehicleUpgradeManager.Instance.OnUpgradeChanged += RefreshUpgradeUI;
+        }
+
+        RefreshMoneyDisplay();
+        RefreshUpgradeUI();
+    }
+
+    void OnDisable()
+    {
+        if (FoodDeliveryManager.Instance != null)
+            FoodDeliveryManager.Instance.OnScoreOrMoneyChanged.RemoveListener(OnMoneyChanged);
+
+        if (VehicleUpgradeManager.Instance != null)
+            VehicleUpgradeManager.Instance.OnUpgradeChanged -= RefreshUpgradeUI;
+    }
+
+    void Start()
+    {
+        if (FoodDeliveryManager.Instance != null)
+        {
+            FoodDeliveryManager.Instance.OnScoreOrMoneyChanged.RemoveListener(OnMoneyChanged);
+            FoodDeliveryManager.Instance.OnScoreOrMoneyChanged.AddListener(OnMoneyChanged);
+        }
+
+        if (VehicleUpgradeManager.Instance != null)
+        {
+            VehicleUpgradeManager.Instance.OnUpgradeChanged -= RefreshUpgradeUI;
+            VehicleUpgradeManager.Instance.OnUpgradeChanged += RefreshUpgradeUI;
+        }
+
+        RefreshMoneyDisplay();
+        RefreshUpgradeUI();
     }
 
     void Update()
@@ -183,10 +295,141 @@ public class MechanicWorkshopUI : MonoBehaviour
             audioSource.PlayOneShot(openSound);
         }
 
+        RefreshMoneyDisplay();
+        RefreshUpgradeUI();
+
         if (fadeCoroutine != null) StopCoroutine(fadeCoroutine);
         fadeCoroutine = StartCoroutine(FadeRoutine(1f, true));
 
         Debug.Log("[MechanicWorkshop] Vista de taller mecánico abierta.");
+    }
+
+    private void OnMoneyChanged(int newTotal)
+    {
+        RefreshMoneyDisplay();
+        RefreshUpgradeUI(); // Actualizar estados de botones al cambiar el dinero
+    }
+
+    /// <summary>
+    /// Actualiza el texto con el dinero real actual del jugador.
+    /// </summary>
+    public void RefreshMoneyDisplay()
+    {
+        if (workshopMoneyText != null)
+        {
+            int currentMoney = FoodDeliveryManager.Instance != null ? FoodDeliveryManager.Instance.TotalMoneyEarned : 0;
+            workshopMoneyText.text = $"$ {currentMoney:N0}";
+        }
+    }
+
+    /// <summary>
+    /// Refresca todos los textos y estados de botones de las 3 categorías de mejoras.
+    /// </summary>
+    /// <summary>
+    /// Refresca todos los textos, estrellas y estados de botones de las 3 categorías de mejoras.
+    /// </summary>
+    public void RefreshUpgradeUI()
+    {
+        RefreshCategoryUI(UpgradeType.Wheels,           wheelsLevelText, wheelsPriceText, wheelsDescText, wheelsBuyButton,  wheelsStarBar);
+        RefreshCategoryUI(UpgradeType.Engine,           engineLevelText, enginePriceText, engineDescText, engineBuyButton,  engineStarBar);
+        RefreshCategoryUI(UpgradeType.ThermalInsulation, thermalLevelText, thermalPriceText, thermalDescText, thermalBuyButton, thermalStarBar);
+    }
+
+    private void RefreshCategoryUI(UpgradeType type,
+                                   TMP_Text levelText, TMP_Text priceText,
+                                   TMP_Text descText,  Button buyButton,
+                                   Image starBar)
+    {
+        if (VehicleUpgradeManager.Instance == null) return;
+
+        int currentLevel = VehicleUpgradeManager.Instance.GetLevel(type);
+        bool isMax       = VehicleUpgradeManager.Instance.IsMaxLevel(type);
+        var  currentData = VehicleUpgradeManager.Instance.GetCurrentLevelData(type);
+        var  nextData    = VehicleUpgradeManager.Instance.GetNextLevelData(type);
+
+        // Actualizar barra de estrellas visual (0★ a 3★)
+        if (starBar != null && starBarSprites != null && starBarSprites.Length > 0)
+        {
+            int spriteIndex = Mathf.Clamp(currentLevel, 0, starBarSprites.Length - 1);
+            if (starBarSprites[spriteIndex] != null)
+            {
+                starBar.sprite = starBarSprites[spriteIndex];
+                starBar.enabled = true;
+            }
+        }
+
+        // Texto del nivel actual con estrellas (si existe)
+        if (levelText != null)
+            levelText.text = currentData != null ? currentData.levelName : $"Nivel {currentLevel}";
+
+        if (isMax)
+        {
+            // Nivel máximo alcanzado
+            if (priceText != null) priceText.text = "MÁXIMO";
+            if (descText  != null) descText.text  = currentData?.description ?? "";
+            if (buyButton != null)
+            {
+                buyButton.interactable = false;
+                var btnText = buyButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null) btnText.text = "MAX";
+            }
+        }
+        else
+        {
+            // Mostrar info del siguiente nivel
+            int price = VehicleUpgradeManager.Instance.GetNextUpgradePrice(type);
+            bool canAfford = VehicleUpgradeManager.Instance.CanAffordNextUpgrade(type);
+
+            if (priceText != null) priceText.text = $"$ {price:N0}";
+            if (descText  != null) descText.text  = nextData?.description ?? "";
+            if (buyButton != null)
+            {
+                buyButton.interactable = disableButtonWhenNoFunds ? canAfford : true;
+                var btnText = buyButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null)
+                    btnText.text = canAfford ? "MEJORAR" : "SIN FONDOS";
+            }
+        }
+    }
+
+    /// <summary>
+    /// Intenta comprar la siguiente mejora de la categoría indicada.
+    /// </summary>
+    private void TryPurchase(UpgradeType type)
+    {
+        if (VehicleUpgradeManager.Instance == null) return;
+
+        bool success = VehicleUpgradeManager.Instance.PurchaseUpgrade(type);
+
+        if (success)
+        {
+            if (purchaseSuccessSound != null && audioSource != null)
+                audioSource.PlayOneShot(purchaseSuccessSound);
+            RefreshMoneyDisplay();
+            RefreshUpgradeUI();
+        }
+        else
+        {
+            if (purchaseFailSound != null && audioSource != null)
+                audioSource.PlayOneShot(purchaseFailSound);
+
+            // Flash de advertencia en el dinero si no alcanzaba la plata
+            if (!VehicleUpgradeManager.Instance.IsMaxLevel(type) && !VehicleUpgradeManager.Instance.CanAffordNextUpgrade(type))
+            {
+                StopCoroutine(nameof(FlashMoneyNoFundsRoutine));
+                StartCoroutine(FlashMoneyNoFundsRoutine());
+            }
+        }
+    }
+
+    private IEnumerator FlashMoneyNoFundsRoutine()
+    {
+        if (workshopMoneyText == null) yield break;
+        Color originalColor = workshopMoneyText.color;
+        workshopMoneyText.color = new Color(1f, 0.25f, 0.25f, 1f); // Rojo alerta
+        yield return new WaitForSecondsRealtime(0.35f);
+        if (workshopMoneyText != null)
+            workshopMoneyText.color = originalColor;
     }
 
     /// <summary>
@@ -250,5 +493,40 @@ public class MechanicWorkshopUI : MonoBehaviour
         panelGroup.alpha = targetAlpha;
         panelGroup.interactable = isOpening;
         panelGroup.blocksRaycasts = isOpening;
+
+        if (!isOpening)
+        {
+            panelGroup.gameObject.SetActive(false);
+        }
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (starBarSprites == null || starBarSprites.Length != 4 || starBarSprites[0] == null)
+        {
+            AutoLoadStarSprites();
+        }
+    }
+
+    [ContextMenu("Auto-cargar Sprites de Estrellas")]
+    public void AutoLoadStarSprites()
+    {
+        var allAssets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/UI/Mecanico/StarsBarSpriteSheet.png");
+        var list = new System.Collections.Generic.List<Sprite>();
+        foreach (var obj in allAssets)
+        {
+            if (obj is Sprite s)
+                list.Add(s);
+        }
+        list.Sort((a, b) => string.Compare(a.name, b.name, System.StringComparison.Ordinal));
+        if (list.Count >= 4)
+        {
+            starBarSprites = list.GetRange(0, 4).ToArray();
+            UnityEditor.EditorUtility.SetDirty(this);
+            Debug.Log("[MechanicWorkshopUI] ✅ Sprites de barra de estrellas cargados exitosamente (4 frames).");
+        }
+    }
+#endif
 }
+

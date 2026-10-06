@@ -235,10 +235,31 @@ public static class MechanicWorkshopSetupTool
         hintText.raycastTarget = false;
         uiController.exitHintText = hintText;
 
-        // Iniciar oculto visualmente pero con GameObject activo para ciclo de vida de componentes
-        panelGroup.alpha = 0f;
-        panelGroup.interactable = false;
-        panelGroup.blocksRaycasts = false;
+        // Texto de Dinero Real en el Taller (esquina inferior izquierda sobre el billete del fondo)
+        GameObject moneyGO = new GameObject("WorkshopMoneyText", typeof(RectTransform));
+        moneyGO.transform.SetParent(panelRootGO.transform, false);
+        RectTransform moneyRT = moneyGO.GetComponent<RectTransform>();
+        moneyRT.anchorMin = new Vector2(0f, 0f);
+        moneyRT.anchorMax = new Vector2(0f, 0f);
+        moneyRT.pivot = new Vector2(0f, 0.5f);
+        moneyRT.anchoredPosition = new Vector2(148f, 72f);
+        moneyRT.sizeDelta = new Vector2(280f, 50f);
+
+        TextMeshProUGUI moneyText = moneyGO.AddComponent<TextMeshProUGUI>();
+        moneyText.font = fontAsset;
+        moneyText.text = "$ 0";
+        moneyText.fontSize = 28f;
+        moneyText.fontStyle = FontStyles.Bold;
+        moneyText.color = new Color(0.98f, 0.91f, 0.70f, 1f);
+        moneyText.alignment = TextAlignmentOptions.MidlineLeft;
+        moneyText.raycastTarget = false;
+        uiController.workshopMoneyText = moneyText;
+
+        // En el editor se deja visible (alpha = 1) para poder posicionar y editar libremente en Scene View.
+        // Al iniciar la partida en Play Mode, MechanicWorkshopUI.Awake() lo oculta automáticamente.
+        panelGroup.alpha = 1f;
+        panelGroup.interactable = true;
+        panelGroup.blocksRaycasts = true;
         panelRootGO.SetActive(true);
 
         // ── 5. Configurar HUD Prompt para Mantener [F] ─────────────────────
@@ -255,8 +276,8 @@ public static class MechanicWorkshopSetupTool
         promptRootRT.sizeDelta = new Vector2(400f, 54f);
 
         CanvasGroup promptGroup = promptRootGO.AddComponent<CanvasGroup>();
-        promptGroup.alpha = 0f;
-        promptGroup.blocksRaycasts = false;
+        promptGroup.alpha = 1f;
+        promptGroup.blocksRaycasts = true;
 
         MechanicWorkshopPromptHUD promptHUD = promptRootGO.AddComponent<MechanicWorkshopPromptHUD>();
         promptHUD.promptContainer = promptRootRT;

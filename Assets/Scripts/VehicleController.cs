@@ -298,69 +298,110 @@ public class VehicleController : MonoBehaviour
         }
     }
 
+    // Suavizado del input de dirección (evita cambios bruscos de volante)
+    private float _smoothedSteer = 0f;
+
     private void DrivePhysics()
     {
-        float verticalInput = moveInput.y;
+        float verticalInput   = moveInput.y;
         float horizontalInput = moveInput.x;
 
-        // Saber a qué velocidad vamos hacia adelante o atrás
+        // Velocidad longitudinal real (positiva = adelante, negativa = reversa)
         float forwardSpeed = Vector3.Dot(transform.forward, rb.linearVelocity);
-        
+
         // --- 0. ASISTENCIA DE ESCALONES Y JUNTAS DE BALDOSAS/PISTA ---
         HandleStepAssist(verticalInput, forwardSpeed);
 
-        // --- 1. ACELERACIÓN Y FRENADO ---
-        if (Mathf.Abs(verticalInput) > 0.1f)
+        // --- 1. LÓGICA DE ACELERACIÓN / FRENADO / CAMBIO DE MARCHA (estilo GTA) ---
+        //
+        // GTA distingue tres casos:
+        //   A) FRENO: misma marcha pero pedal contrario a la velocidad actual con suficiente inercia.
+        //      → Se aplica frenado fuerte para detenerse antes de invertir.
+        //   B) CAMBIO DE MARCHA: el auto está casi detenido (< umbral) y se presiona el sentido opuesto.
+        //      → Se permite invertir libremente sin bloqueo.
+        //   C) ACELERACIÓN NORMAL: mismo sentido de movimiento.
+        //      → Empuje directo.
+        //
+        // El bug anterior trataba (B) como (A) a altas velocidades → "lock".
+
+        // Umbral de velocidad mínima para considerar que "ya frenamos" y podemos invertir
+        const float kGearSwitchThreshold = 1.2f; // m/s (~4 km/h)
+
+        bool hasThrottle = Mathf.Abs(verticalInput) > 0.1f;
+
+        if (hasThrottle)
         {
-            // Detectar si estamos intentando frenar (moviéndonos adelante y presionando atrás, o viceversa)
-            bool isBraking = (forwardSpeed > 1f && verticalInput < -0.1f) || (forwardSpeed < -1f && verticalInput > 0.1f);
+            bool movingForward  = forwardSpeed >  kGearSwitchThreshold;
+            bool movingBackward = forwardSpeed < -kGearSwitchThreshold;
+            bool throttleForward = verticalInput > 0f;
+            bool throttleBackward = verticalInput < 0f;
+
+            // CASO A: Freno activo (tenemos inercia en un sentido y pedal en el contrario)
+            bool isBraking = (movingForward && throttleBackward) || (movingBackward && throttleForward);
 
             if (isBraking)
             {
-                // Freno activo: se aplica una fuerza contraria a la velocidad actual
+                // Freno proporcional a la velocidad: a más velocidad, frena más fuerte.
+                // No se aplica en vertical (Y) para no interferir con la gravedad.
                 Vector3 brakeForce = -rb.linearVelocity.normalized * brakePower;
-                brakeForce.y = 0;
+                brakeForce.y = 0f;
                 rb.AddForce(brakeForce, ForceMode.Acceleration);
             }
-            else if (rb.linearVelocity.magnitude < maxSpeed)
+            else
             {
-                // Aceleración
-                rb.AddForce(transform.forward * verticalInput * acceleration, ForceMode.Acceleration);
+                // CASO B + C: ya estamos lentos o acelerando en el mismo sentido → empujar
+                if (rb.linearVelocity.magnitude < maxSpeed)
+                {
+                    rb.AddForce(transform.forward * verticalInput * acceleration, ForceMode.Acceleration);
+                }
             }
         }
         else
         {
             // --- 2. FRICCIÓN NATURAL (COASTING) ---
-            // Si soltamos las teclas, el auto rueda y se detiene suavemente
+            // Si soltamos el acelerador, el auto rueda y se detiene suavemente
             Vector3 frictionForce = -rb.linearVelocity * coastingFriction;
-            frictionForce.y = 0; // No afectar la gravedad
+            frictionForce.y = 0f;
             rb.AddForce(frictionForce, ForceMode.Acceleration);
         }
 
-        // --- 3. GIRO (DIRECCIÓN) ---
-        // Solo podemos girar si el camión se está moviendo
-        if (Mathf.Abs(forwardSpeed) > 0.5f)
-        {
-            // Invertimos los controles si vamos en reversa para que se sienta natural
-            float steerDirection = forwardSpeed > 0 ? 1f : -1f;
-            float turnAmount = horizontalInput * turnSpeed * steerDirection * Time.fixedDeltaTime;
+        // --- 3. GIRO (DIRECCIÓN) — estilo GTA ---
+        //
+        // Mejoras respecto al código anterior:
+        //   • El input de volante se suaviza con Lerp para evitar snap brusco.
+        //   • El ángulo de giro se escala por velocidad: a baja velocidad gira poco,
+        //     a velocidad de crucero gira al máximo → se siente "controlado" como en GTA.
+        //   • Al invertir marcha el steering se invierte correctamente (igual que antes)
+        //     pero sólo cuando realmente nos movemos en reversa (no durante el frenado).
 
-            // BUG FIX: Rotar SOLO en el eje Y del mundo, ignorando pitch/roll del Rigidbody.
-            // rb.rotation * Euler(Y) heredaba inclinaciones de rampas y juntas → descontrol.
+        // Velocidad de interpolación del volante (más alto = más rápido/nervioso)
+        float steerSmoothSpeed = 8f;
+        _smoothedSteer = Mathf.Lerp(_smoothedSteer, horizontalInput, Time.fixedDeltaTime * steerSmoothSpeed);
+
+        // Velocidad mínima para empezar a girar (zona muerta muy pequeña)
+        if (Mathf.Abs(forwardSpeed) > 0.3f)
+        {
+            // Escala el giro por velocidad: rampa de 0.3 m/s → 4 m/s = 0% → 100% del giro
+            float speedFactor = Mathf.Clamp01(Mathf.Abs(forwardSpeed) / 4f);
+
+            // En reversa invertimos el volante para que se sienta natural
+            float steerDirection = forwardSpeed >= 0f ? 1f : -1f;
+
+            float turnAmount = _smoothedSteer * turnSpeed * steerDirection * speedFactor * Time.fixedDeltaTime;
+
+            // Rotar SOLO en el eje Y del mundo para ignorar pitch/roll del Rigidbody
             float currentYaw = rb.rotation.eulerAngles.y;
             Quaternion newRotation = Quaternion.Euler(0f, currentYaw + turnAmount, 0f);
             rb.MoveRotation(newRotation);
         }
-        
-        // --- 4. AGARRE (EVITAR DERRAPE EXCESIVO) ---
-        // BUG FIX: Aplicar el agarre como fuerza (AddForce) en lugar de mutar linearVelocity
-        // directamente, lo que causaba tirones bruscos a altas velocidades.
+
+        // --- 4. AGARRE LATERAL (EVITAR DERRAPE EXCESIVO) ---
+        // Aplicado como fuerza, no mutando linearVelocity (evita tirones bruscos)
         Vector3 rightVelocity = transform.right * Vector3.Dot(rb.linearVelocity, transform.right);
         rb.AddForce(-rightVelocity * grip, ForceMode.Acceleration);
 
         // --- 5. DOWNFORCE (MANTENER PEGADO AL ASFALTO) ---
-        // BUG FIX: Usar -Vector3.up (mundo) en vez de -transform.up (local).
-        // Con transform.up inclinado, la downforce empujaba el auto lateralmente → descontrol.
+        // Usamos Vector3.up (mundo) en lugar de transform.up para evitar empujes laterales en rampas
         if (downforce > 0f)
         {
             rb.AddForce(-Vector3.up * downforce, ForceMode.Acceleration);

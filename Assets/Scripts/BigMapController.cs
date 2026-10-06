@@ -104,6 +104,8 @@ public class BigMapController : MonoBehaviour
         if (mapPanelGroup != null)
         {
             mapPanelGroup.alpha = 0f;
+            mapPanelGroup.interactable = false;
+            mapPanelGroup.blocksRaycasts = false;
             mapPanelGroup.gameObject.SetActive(false);
         }
 
@@ -386,32 +388,61 @@ public class BigMapController : MonoBehaviour
     {
         if (mapPanelGroup == null)
         {
-            GameObject panelGO = GameObject.Find("BigMapPanel");
-            if (panelGO != null) mapPanelGroup = panelGO.GetComponent<CanvasGroup>();
+            Canvas[] allCanvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var c in allCanvases)
+            {
+                if (c.name == "HUDCanvas")
+                {
+                    Transform t = c.transform.Find("BigMapPanel");
+                    if (t != null)
+                    {
+                        mapPanelGroup = t.GetComponent<CanvasGroup>();
+                        break;
+                    }
+                }
+            }
+            if (mapPanelGroup == null)
+            {
+                var allGroups = Resources.FindObjectsOfTypeAll<CanvasGroup>();
+                foreach (var cg in allGroups)
+                {
+                    if (cg.gameObject.name == "BigMapPanel") { mapPanelGroup = cg; break; }
+                }
+            }
         }
 
-        if (bigMapView == null)
+        if (mapPanelGroup != null)
         {
-            GameObject viewGO = GameObject.Find("BigMapView");
-            if (viewGO != null) bigMapView = viewGO.GetComponent<RawImage>();
-        }
+            if (bigMapView == null)
+            {
+                Transform vt = mapPanelGroup.transform.Find("BigMapView");
+                if (vt != null) bigMapView = vt.GetComponent<RawImage>();
+            }
 
-        if (playerIcon == null)
-        {
-            GameObject iconGO = GameObject.Find("BigMapPlayerIcon");
-            if (iconGO != null) playerIcon = iconGO.GetComponent<RectTransform>();
-        }
+            if (playerIcon == null)
+            {
+                Transform it = mapPanelGroup.transform.Find("BigMapPlayerIcon");
+                if (it != null) playerIcon = it.GetComponent<RectTransform>();
+            }
 
-        if (objectiveMarker == null)
-        {
-            GameObject markerGO = GameObject.Find("BigMapObjectiveMarker");
-            if (markerGO != null) objectiveMarker = markerGO.GetComponent<RectTransform>();
+            if (objectiveMarker == null)
+            {
+                Transform mt = mapPanelGroup.transform.Find("BigMapObjectiveMarker");
+                if (mt != null) objectiveMarker = mt.GetComponent<RectTransform>();
+            }
         }
 
         if (minimapContainer == null)
         {
-            GameObject miniGO = GameObject.Find("MinimapContainer");
-            if (miniGO != null) minimapContainer = miniGO.GetComponent<RectTransform>();
+            Canvas[] allCanvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var c in allCanvases)
+            {
+                if (c.name == "HUDCanvas")
+                {
+                    Transform t = c.transform.Find("MinimapContainer");
+                    if (t != null) { minimapContainer = t.GetComponent<RectTransform>(); break; }
+                }
+            }
         }
     }
 
