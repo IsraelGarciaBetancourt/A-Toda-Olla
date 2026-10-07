@@ -20,19 +20,19 @@ MonoBehaviour:
     maxSpeedBonus: 0
     description: "Ruedas de f\xE1brica. Giro b\xE1sico."
   - levelName: "\u2605\u2606\u2606 Radiales"
-    price: 300
+    price: 5
     turnSpeedBonus: 15
     accelerationBonus: 0
     maxSpeedBonus: 0
     description: "Llantas radiales. Respuesta de direcci\xF3n mejorada."
   - levelName: "\u2605\u2605\u2606 Performance"
-    price: 700
+    price: 5
     turnSpeedBonus: 35
     accelerationBonus: 0
     maxSpeedBonus: 0
     description: "Compuesto performance. Giro notablemente m\xE1s r\xE1pido."
   - levelName: "\u2605\u2605\u2605 Slick Pro"
-    price: 1400
+    price: 5
     turnSpeedBonus: 60
     accelerationBonus: 0
     maxSpeedBonus: 0
@@ -45,19 +45,19 @@ MonoBehaviour:
     maxSpeedBonus: 0
     description: Motor de serie. Suficiente para hacer entregas.
   - levelName: "\u2605\u2606\u2606 Filtro & Escape"
-    price: 10
+    price: 5
     turnSpeedBonus: 0
     accelerationBonus: 8
     maxSpeedBonus: 3
     description: "Filtro de aire y escape libre. M\xE1s respuesta al gas."
   - levelName: "\u2605\u2605\u2606 Turbo Kit"
-    price: 20
+    price: 5
     turnSpeedBonus: 0
     accelerationBonus: 18
     maxSpeedBonus: 7
     description: "Turbocompresor instalado. Aceleraci\xF3n y punta superiores."
   - levelName: "\u2605\u2605\u2605 Motor Racing"
-    price: 30
+    price: 5
     turnSpeedBonus: 0
     accelerationBonus: 32
     maxSpeedBonus: 12

@@ -20,6 +20,13 @@ public class DeliveryNavigationHUD : MonoBehaviour
     public Color successColor = new Color(0.3f, 1f, 0.4f, 1f);     // Verde brillante
     public Color waitingColor = new Color(0.9f, 0.9f, 0.9f, 1f);   // Blanco suave
 
+    [Header("Barra de Temperatura / Contrarreloj")]
+    public GameObject timerBarRoot;
+    public Image timerFillBar;
+    public Color boilingBarColor = new Color(0.1f, 0.95f, 0.5f, 1f);   // Verde esmeralda (> 50%)
+    public Color hotBarColor = new Color(1f, 0.8f, 0.2f, 1f);          // Naranja cálido (15% - 50%)
+    public Color coldBarColor = new Color(1f, 0.25f, 0.25f, 1f);       // Rojo peligro (< 15%)
+
     private FoodDeliveryManager deliveryManager;
     private Transform playerTransform;
 
@@ -118,6 +125,35 @@ public class DeliveryNavigationHUD : MonoBehaviour
             missionText.fontStyle = FontStyles.Bold;
             missionText.color = Color.white;
 
+            // Barra de termómetro bajo el banner
+            GameObject barRootGO = new GameObject("OrderThermometerBar", typeof(RectTransform));
+            barRootGO.transform.SetParent(container.transform, false);
+            RectTransform barRect = barRootGO.GetComponent<RectTransform>();
+            barRect.anchorMin = new Vector2(0f, 0f);
+            barRect.anchorMax = new Vector2(1f, 0f);
+            barRect.pivot = new Vector2(0.5f, 1f);
+            barRect.anchoredPosition = new Vector2(0f, -3f);
+            barRect.sizeDelta = new Vector2(0f, 6f);
+
+            Image barBg = barRootGO.AddComponent<Image>();
+            barBg.color = new Color(0.12f, 0.12f, 0.16f, 0.9f);
+
+            GameObject fillGO = new GameObject("ThermometerFill", typeof(RectTransform));
+            fillGO.transform.SetParent(barRootGO.transform, false);
+            RectTransform fillRect = fillGO.GetComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+
+            timerFillBar = fillGO.AddComponent<Image>();
+            timerFillBar.type = Image.Type.Filled;
+            timerFillBar.fillMethod = Image.FillMethod.Horizontal;
+            timerFillBar.fillOrigin = 0;
+            timerFillBar.fillAmount = 1f;
+            timerFillBar.color = boilingBarColor;
+
+            timerBarRoot = barRootGO;
             missionContainer = container;
         }
     }
@@ -139,45 +175,137 @@ public class DeliveryNavigationHUD : MonoBehaviour
         if (missionContainer != null && !missionContainer.activeSelf)
             missionContainer.SetActive(true);
 
+        // 1. PRIORIDAD: Estados globales de ShiftManager (Retorno a base o Fin de turno)
+        if (ShiftManager.Instance != null)
+        {
+            if (ShiftManager.Instance.CurrentState == ShiftManager.ShiftState.ReturningToBase)
+            {
+                if (timerBarRoot != null) timerBarRoot.SetActive(false);
+
+                Vector3 basePos = ShiftManager.Instance.KitchenBasePosition;
+                Vector3 playerPos = playerTransform != null ? playerTransform.position : (Camera.main != null ? Camera.main.transform.position : Vector3.zero);
+                float distToBase = Vector3.Distance(new Vector3(playerPos.x, basePos.y, playerPos.z), basePos);
+                int meters = Mathf.Max(1, Mathf.RoundToInt(distToBase));
+                int shiftSecs = Mathf.CeilToInt(ShiftManager.Instance.ShiftTimeRemaining);
+                int mins = shiftSecs / 60;
+                int secs = shiftSecs % 60;
+
+                missionText.text = $"[CUOTA CUMPLIDA] REGRESA A LA COCINA  •  {meters} M  •  {mins:00}:{secs:00}";
+                missionText.color = inTransitColor;
+                return;
+            }
+            else if (ShiftManager.Instance.CurrentState == ShiftManager.ShiftState.DayCompleted)
+            {
+                if (timerBarRoot != null) timerBarRoot.SetActive(false);
+                missionText.text = "¡JORNADA COMPLETADA CON ÉXITO!";
+                missionText.color = successColor;
+                return;
+            }
+            else if (ShiftManager.Instance.CurrentState == ShiftManager.ShiftState.DayFailed)
+            {
+                if (timerBarRoot != null) timerBarRoot.SetActive(false);
+                missionText.text = "JORNADA FALLIDA: TIEMPO AGOTADO";
+                missionText.color = coldBarColor;
+                return;
+            }
+        }
+
         DeliveryPoint target = deliveryManager.CurrentDestination;
 
         if (target == null)
         {
+            if (timerBarRoot != null) timerBarRoot.SetActive(false);
             missionText.text = "ASIGNANDO PEDIDO...";
             missionText.color = waitingColor;
             return;
         }
 
-        Vector3 playerPos = playerTransform != null 
+        Vector3 currentPos = playerTransform != null 
             ? playerTransform.position 
             : (Camera.main != null ? Camera.main.transform.position : Vector3.zero);
+
+        // Actualizar barra de termómetro del pedido
+        if (timerBarRoot != null)
+        {
+            bool showTimer = deliveryManager.enableOrderTimer && deliveryManager.IsOrderTimerActive;
+            if (timerBarRoot.activeSelf != showTimer) timerBarRoot.SetActive(showTimer);
+
+            if (showTimer && timerFillBar != null)
+            {
+                float ratio = deliveryManager.NormalizedOrderTime;
+                timerFillBar.fillAmount = ratio;
+                if (ratio > 0.5f)
+                {
+                    timerFillBar.color = boilingBarColor;
+                }
+                else if (ratio >= 0.15f)
+                {
+                    timerFillBar.color = hotBarColor;
+                }
+                else
+                {
+                    bool pulse = Mathf.PingPong(Time.time * 5f, 1f) > 0.4f;
+                    timerFillBar.color = pulse ? coldBarColor : Color.white;
+                }
+            }
+        }
+
+        string timerString = "";
+        if (deliveryManager.enableOrderTimer && deliveryManager.IsOrderTimerActive)
+        {
+            int tSecs = Mathf.CeilToInt(deliveryManager.CurrentOrderTimeRemaining);
+            int tMins = tSecs / 60;
+            int remSecs = tSecs % 60;
+            timerString = $"  •  {tMins:00}:{remSecs:00}";
+        }
 
         switch (deliveryManager.CurrentState)
         {
             case FoodDeliveryManager.DeliveryState.WaitingForPickup:
-                PickableItem nearestFood = deliveryManager.GetNearestAvailableFoodItem(playerPos);
+                PickableItem nearestFood = deliveryManager.GetNearestAvailableFoodItem(currentPos);
                 if (nearestFood != null)
                 {
-                    float distToFood = Vector3.Distance(playerPos, nearestFood.transform.position);
+                    float distToFood = Vector3.Distance(currentPos, nearestFood.transform.position);
                     missionText.text = distToFood > 5f
-                        ? $"RECOGE UNA OLLA CON COMIDA ({Mathf.RoundToInt(distToFood)}m) -> DESTINO: {target.houseName.ToUpper()}"
-                        : $"RECOGE UNA OLLA CON COMIDA -> DESTINO: {target.houseName.ToUpper()}";
+                        ? $"RECOGE UNA OLLA ({Mathf.RoundToInt(distToFood)}m) -> {target.houseName.ToUpper()}{timerString}"
+                        : $"RECOGE UNA OLLA -> {target.houseName.ToUpper()}{timerString}";
                 }
                 else
                 {
-                    missionText.text = $"RECOGE UNA OLLA CON COMIDA -> DESTINO: {target.houseName.ToUpper()}";
+                    missionText.text = $"RECOGE UNA OLLA CON COMIDA -> {target.houseName.ToUpper()}{timerString}";
                 }
                 missionText.color = waitingColor;
                 break;
 
             case FoodDeliveryManager.DeliveryState.InTransit:
-                float dist = Vector3.Distance(playerPos, target.transform.position);
-                int meters = Mathf.Max(1, Mathf.RoundToInt(dist));
-                missionText.text = $"ENTREGAR EN: {target.houseName.ToUpper()}  •  {meters} M";
-                missionText.color = inTransitColor;
+                float dist = Vector3.Distance(currentPos, target.transform.position);
+                int metersToHouse = Mathf.Max(1, Mathf.RoundToInt(dist));
+
+                string qualityTag = "";
+                if (deliveryManager.enableOrderTimer && deliveryManager.IsOrderTimerActive)
+                {
+                    float norm = deliveryManager.NormalizedOrderTime;
+                    if (norm > 0.5f) qualityTag = "  •  +PROPINA";
+                    else if (norm >= 0.15f) qualityTag = "  •  CALIENTE";
+                    else qualityTag = "  •  ¡ENFRIÁNDOSE!";
+                }
+
+                missionText.text = $"ENTREGAR EN: {target.houseName.ToUpper()}  •  {metersToHouse} M{timerString}{qualityTag}";
+
+                // Cambiar color a rojo parpadeante si queda menos del 15% de tiempo
+                if (deliveryManager.enableOrderTimer && deliveryManager.NormalizedOrderTime < 0.15f)
+                {
+                    bool blink = Mathf.PingPong(Time.time * 4f, 1f) > 0.5f;
+                    missionText.color = blink ? coldBarColor : inTransitColor;
+                }
+                else
+                {
+                    missionText.color = inTransitColor;
+                }
                 break;
 
             case FoodDeliveryManager.DeliveryState.Completed:
+                if (timerBarRoot != null) timerBarRoot.SetActive(false);
                 missionText.text = $"¡ENTREGA COMPLETADA!  +${deliveryManager.rewardPerDelivery}";
                 missionText.color = successColor;
                 break;

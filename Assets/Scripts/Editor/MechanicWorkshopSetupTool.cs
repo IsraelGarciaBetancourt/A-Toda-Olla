@@ -394,4 +394,21 @@ public static class MechanicWorkshopSetupTool
 
         Debug.Log("[MechanicWorkshopSetup] ¡Configuración del Taller Mecánico completada con éxito!");
     }
+
+    [MenuItem("Tools/A-Toda-Olla/Resetear Mejoras del Taller (PlayerPrefs)")]
+    public static void ResetWorkshopPlayerPrefs()
+    {
+        PlayerPrefs.DeleteKey(VehicleUpgradeManager.PREF_KEY_WHEELS);
+        PlayerPrefs.DeleteKey(VehicleUpgradeManager.PREF_KEY_ENGINE);
+        PlayerPrefs.DeleteKey(VehicleUpgradeManager.PREF_KEY_THERMAL);
+        PlayerPrefs.Save();
+
+        if (Application.isPlaying && VehicleUpgradeManager.Instance != null)
+        {
+            VehicleUpgradeManager.Instance.ResetAllUpgrades();
+        }
+
+        Debug.Log("[MechanicWorkshopSetupTool] 🧹 PlayerPrefs de mejoras del taller eliminados con éxito.");
+        EditorUtility.DisplayDialog("Taller Mecánico", "Las mejoras del taller se han reiniciado a nivel 0 (PlayerPrefs limpios).", "OK");
+    }
 }

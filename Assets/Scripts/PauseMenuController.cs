@@ -106,6 +106,12 @@ public class PauseMenuController : MonoBehaviour
             return;
         }
 
+        // 1.7. Si la pantalla de resultados de fin de jornada está abierta, no abrir la pausa
+        if (ShiftResultsUI.Instance != null && ShiftResultsUI.Instance.IsOpen)
+        {
+            return;
+        }
+
         bool toggleRequested = false;
 
         // 2. Detección con New Input System (Escape y tecla P)

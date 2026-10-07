@@ -21,6 +21,14 @@ public class FoodDeliveryManager : MonoBehaviour
         Completed          // Pedido entregado con éxito
     }
 
+    public enum DeliveryQuality
+    {
+        Boiling,  // Hirviendo / Entrega rápida (> 50% tiempo restante) -> Bono de propina
+        Hot,      // Caliente estándar (15% - 50% tiempo restante) -> Pago normal
+        Warm,     // Tibio (< 15% tiempo restante) -> Pago reducido
+        Cold      // Frío (0s restante) -> Expirado / Cancelado con penalización
+    }
+
     [Header("Referencias del Pedido")]
     [Tooltip("Ítem de comida opcional predeterminado. Si está vacío, cualquier OllaConComida no entregada de la escena es válida.")]
     public PickableItem targetFoodItem;
@@ -38,23 +46,65 @@ public class FoodDeliveryManager : MonoBehaviour
     [Tooltip("Segundos de espera antes de asignar el siguiente pedido tras completar uno.")]
     public float delayBetweenOrders = 3.5f;
 
-    [Tooltip("Recompensa en dinero o puntos por entrega completada.")]
+    [Tooltip("Recompensa en dinero base por entrega completada.")]
     public int rewardPerDelivery = 50;
+
+    [Header("Temporizador de Pedido")]
+    [Tooltip("¿Activar cuenta regresiva contra reloj para cada pedido?")]
+    public bool enableOrderTimer = true;
+
+    [Tooltip("Tiempo base garantizado para cualquier pedido (en segundos).")]
+    public float baseOrderTime = 50f;
+
+    [Tooltip("Segundos adicionales otorgados por cada 100 metros de distancia a la casa.")]
+    public float secondsPer100Meters = 18f;
+
+    [Tooltip("Tiempo mínimo absoluto asignado a un pedido.")]
+    public float minOrderTime = 35f;
+
+    [Tooltip("Bono extra de propina si la entrega se hace mientras la comida sigue hirviendo (> 50% tiempo).")]
+    public int speedBonusReward = 25;
+
+    [Tooltip("Multiplicador del pago si la comida llega tibia (< 15% tiempo restante).")]
+    [Range(0.2f, 1f)]
+    public float warmPayoutMultiplier = 0.7f;
+
+    [Tooltip("Penalización económica por pedido expirado (ingredientes desperdiciados).")]
+    public int wastedFoodPenalty = 20;
+
+    [Header("Audio y Tensión Contrarreloj")]
+    [Tooltip("Clip opcional de tick para los últimos 15 segundos (se sintetiza proceduralmente si está vacío).")]
+    public AudioClip criticalTickClip;
+
+    [Tooltip("Clip opcional de propina/monedas al entregar en calidad hirviendo (se sintetiza proceduralmente si está vacío).")]
+    public AudioClip speedBonusClip;
+
+    [Tooltip("Clip opcional al expirar el pedido y enfriarse la comida (se sintetiza proceduralmente si está vacío).")]
+    public AudioClip orderExpiredClip;
 
     [Header("Input Setup")]
     [Tooltip("Acción de interacción para entregar (tecla E). Si está vacía, usa teclado directo E como fallback.")]
     public InputActionReference interactAction;
 
     [Header("Eventos de Ciclo")]
-    public UnityEvent<DeliveryPoint> OnOrderStarted;
-    public UnityEvent<DeliveryPoint, PickableItem> OnDeliverySuccess;
-    public UnityEvent<int> OnScoreOrMoneyChanged;
+    public UnityEvent<DeliveryPoint> OnOrderStarted = new UnityEvent<DeliveryPoint>();
+    public UnityEvent<DeliveryPoint, PickableItem> OnDeliverySuccess = new UnityEvent<DeliveryPoint, PickableItem>();
+    public UnityEvent<int> OnScoreOrMoneyChanged = new UnityEvent<int>();
+    public UnityEvent<float, float> OnOrderTimerTick = new UnityEvent<float, float>();                 // (tiempoRestante, normalizado01)
+    public UnityEvent<DeliveryPoint, int> OnOrderExpired = new UnityEvent<DeliveryPoint, int>();             // (destino, multaEconómica)
+    public UnityEvent<DeliveryQuality, int, int> OnDeliveryQualityEvaluated = new UnityEvent<DeliveryQuality, int, int>(); // (calidad, pagoTotal, propina)
 
     // Estado público
     public DeliveryPoint CurrentDestination { get; private set; }
     public DeliveryState CurrentState { get; private set; } = DeliveryState.Idle;
     public int TotalDeliveriesCompleted { get; private set; } = 0;
     public int TotalMoneyEarned { get; private set; } = 0;
+
+    // Estado público del temporizador de pedido
+    public float CurrentOrderTimeRemaining { get; private set; } = 0f;
+    public float CurrentOrderDuration { get; private set; } = 0f;
+    public bool IsOrderTimerActive { get; private set; } = false;
+    public float NormalizedOrderTime => CurrentOrderDuration > 0.001f ? Mathf.Clamp01(CurrentOrderTimeRemaining / CurrentOrderDuration) : 0f;
 
     /// <summary>
     /// Intenta gastar una cantidad de dinero. Devuelve true si la transacción fue exitosa.
@@ -84,6 +134,12 @@ public class FoodDeliveryManager : MonoBehaviour
     private PlayerPickup cachedPlayerPickup = null;
     private CargoManager cachedCargoManager = null;
 
+    private AudioSource audioSource;
+    private float tickTimer = 0f;
+    private static AudioClip proceduralTickClip = null;
+    private static AudioClip proceduralBonusClip = null;
+    private static AudioClip proceduralExpiredClip = null;
+
     void Awake()
     {
         if (Instance == null)
@@ -93,6 +149,28 @@ public class FoodDeliveryManager : MonoBehaviour
         else if (Instance != this)
         {
             Destroy(this);
+            return;
+        }
+
+        // Asegurar que los eventos de ciclo nunca sean nulos
+        if (OnOrderStarted == null) OnOrderStarted = new UnityEvent<DeliveryPoint>();
+        if (OnDeliverySuccess == null) OnDeliverySuccess = new UnityEvent<DeliveryPoint, PickableItem>();
+        if (OnScoreOrMoneyChanged == null) OnScoreOrMoneyChanged = new UnityEvent<int>();
+        if (OnOrderTimerTick == null) OnOrderTimerTick = new UnityEvent<float, float>();
+        if (OnOrderExpired == null) OnOrderExpired = new UnityEvent<DeliveryPoint, int>();
+        if (OnDeliveryQualityEvaluated == null) OnDeliveryQualityEvaluated = new UnityEvent<DeliveryQuality, int, int>();
+
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+        }
+
+        // Auto-asegurar ShiftManager en este GameObject si no existe uno en la escena
+        if (ShiftManager.Instance == null && Object.FindAnyObjectByType<ShiftManager>() == null)
+        {
+            gameObject.AddComponent<ShiftManager>();
         }
     }
 
@@ -128,6 +206,7 @@ public class FoodDeliveryManager : MonoBehaviour
     void Update()
     {
         UpdateDeliveryState();
+        UpdateOrderTimer();
         CheckDirectKeyboardFallback();
     }
 
@@ -301,6 +380,12 @@ public class FoodDeliveryManager : MonoBehaviour
     /// </summary>
     public bool StartNewDeliveryOrder()
     {
+        // Si ShiftManager está activo y la cuota ya se cumplió o no acepta más pedidos
+        if (ShiftManager.Instance != null && !ShiftManager.Instance.CanAcceptNewOrders())
+        {
+            return false;
+        }
+
         if (availableDeliveryPoints == null || availableDeliveryPoints.Count == 0)
         {
             RegisterAllDeliveryPoints();
@@ -347,10 +432,110 @@ public class FoodDeliveryManager : MonoBehaviour
             ? DeliveryState.InTransit
             : DeliveryState.WaitingForPickup;
 
-        Debug.Log($"[FoodDeliveryManager] 📦 ¡Nuevo pedido! Entregar a: {CurrentDestination.houseName}");
+        // Iniciar temporizador del pedido si está activado
+        if (enableOrderTimer)
+        {
+            float dist = GetDistanceToDestination();
+            if (dist < 10f) dist = 80f;
+            CurrentOrderDuration = CalculateOrderDuration(dist);
+            CurrentOrderTimeRemaining = CurrentOrderDuration;
+            IsOrderTimerActive = true;
+            tickTimer = 0f;
+            RestoreFoodSteam();
+        }
+        else
+        {
+            IsOrderTimerActive = false;
+            CurrentOrderTimeRemaining = 0f;
+            CurrentOrderDuration = 0f;
+        }
+
+        Debug.Log($"[FoodDeliveryManager] 📦 ¡Nuevo pedido! Entregar a: {CurrentDestination.houseName} (Tiempo límite: {CurrentOrderDuration:F0}s)");
         OnOrderStarted?.Invoke(CurrentDestination);
 
         return true;
+    }
+
+    /// <summary>
+    /// Calcula el tiempo asignado a un pedido en base a la distancia hasta la casa destino.
+    /// </summary>
+    public float CalculateOrderDuration(float distanceMeters)
+    {
+        float calculated = baseOrderTime + (distanceMeters / 100f) * secondsPer100Meters;
+        return Mathf.Max(minOrderTime, calculated);
+    }
+
+    private void UpdateOrderTimer()
+    {
+        if (!enableOrderTimer || !IsOrderTimerActive || CurrentDestination == null || CurrentState == DeliveryState.Completed)
+            return;
+
+        CurrentOrderTimeRemaining -= Time.deltaTime;
+
+        if (CurrentOrderTimeRemaining <= 0f)
+        {
+            CurrentOrderTimeRemaining = 0f;
+            IsOrderTimerActive = false;
+            HandleOrderExpired();
+        }
+        else
+        {
+            // Feedback rítmico de tensión en los últimos 15 segundos
+            if (CurrentOrderTimeRemaining <= 15f)
+            {
+                float tickInterval = CurrentOrderTimeRemaining < 5f ? 0.5f : 1.0f;
+                tickTimer += Time.deltaTime;
+                if (tickTimer >= tickInterval)
+                {
+                    tickTimer = 0f;
+                    PlayCriticalTickSound();
+                }
+            }
+            else
+            {
+                tickTimer = 0f;
+            }
+
+            OnOrderTimerTick?.Invoke(CurrentOrderTimeRemaining, NormalizedOrderTime);
+        }
+    }
+
+    private void HandleOrderExpired()
+    {
+        if (CurrentDestination == null) return;
+
+        DeliveryPoint expiredDestination = CurrentDestination;
+        Debug.LogWarning($"[FoodDeliveryManager] ❄️ ¡Pedido expirado! La comida para {expiredDestination.houseName} se enfrió. Multa por desperdicio: -${wastedFoodPenalty}");
+
+        // Apagar el vapor de las ollas (comida fría) y sonido de fallo
+        ExtinguishFoodSteam();
+        PlayOrderExpiredSound();
+
+        // Desactivar la casa activa
+        expiredDestination.SetActiveDestination(false);
+        expiredDestination.OnItemDelivered.RemoveListener(HandleItemDelivered);
+        CurrentDestination = null;
+        CurrentState = DeliveryState.Idle;
+
+        // Descontar penalización económica (sin permitir saldo negativo)
+        SpendMoney(wastedFoodPenalty);
+
+        OnOrderExpired?.Invoke(expiredDestination, wastedFoodPenalty);
+
+        // Notificar al ShiftManager
+        if (ShiftManager.Instance != null)
+        {
+            ShiftManager.Instance.RecordExpiredOrder(wastedFoodPenalty);
+        }
+
+        // Programar siguiente pedido si el turno lo permite
+        if (autoStartNextOrder)
+        {
+            if (ShiftManager.Instance == null || ShiftManager.Instance.CanAcceptNewOrders())
+            {
+                StartCoroutine(ScheduleNextOrderRoutine());
+            }
+        }
     }
 
     /// <summary>
@@ -420,14 +605,60 @@ public class FoodDeliveryManager : MonoBehaviour
 
     private void HandleItemDelivered(PickableItem deliveredItem)
     {
+        IsOrderTimerActive = false;
         CurrentState = DeliveryState.Completed;
         TotalDeliveriesCompleted++;
-        TotalMoneyEarned += rewardPerDelivery;
 
-        Debug.Log($"[FoodDeliveryManager] 🎉 ¡Entrega completada con éxito en {CurrentDestination.houseName}! Ganancia: +${rewardPerDelivery}. Total: ${TotalMoneyEarned}");
+        DeliveryQuality quality = DeliveryQuality.Hot;
+        int tipEarned = 0;
+        int payout = rewardPerDelivery;
+
+        if (enableOrderTimer && CurrentOrderDuration > 0.01f)
+        {
+            float ratio = NormalizedOrderTime;
+            if (ratio >= 0.5f)
+            {
+                quality = DeliveryQuality.Boiling;
+                tipEarned = speedBonusReward;
+                payout = rewardPerDelivery + tipEarned;
+            }
+            else if (ratio >= 0.15f)
+            {
+                quality = DeliveryQuality.Hot;
+                tipEarned = 0;
+                payout = rewardPerDelivery;
+            }
+            else
+            {
+                quality = DeliveryQuality.Warm;
+                tipEarned = 0;
+                payout = Mathf.Max(10, Mathf.RoundToInt(rewardPerDelivery * warmPayoutMultiplier));
+            }
+        }
+
+        if (quality == DeliveryQuality.Boiling)
+        {
+            PlaySpeedBonusSound();
+        }
+
+        TotalMoneyEarned += payout;
+
+        Debug.Log($"[FoodDeliveryManager] 🎉 ¡Entrega completada con éxito en {CurrentDestination.houseName}! Calidad: {quality}. Ganancia: +${payout} (Propina: +${tipEarned}). Total acumulado: ${TotalMoneyEarned}");
 
         OnDeliverySuccess?.Invoke(CurrentDestination, deliveredItem);
+        OnDeliveryQualityEvaluated?.Invoke(quality, payout, tipEarned);
         OnScoreOrMoneyChanged?.Invoke(TotalMoneyEarned);
+
+        if (ShiftManager.Instance != null)
+        {
+            ShiftManager.Instance.RecordDelivery(quality, payout, tipEarned);
+        }
+
+        // Si la cuota ya se cumplió o no podemos aceptar pedidos nuevos, no iniciar siguiente
+        if (ShiftManager.Instance != null && !ShiftManager.Instance.CanAcceptNewOrders())
+        {
+            return;
+        }
 
         if (autoStartNextOrder)
         {
@@ -453,5 +684,133 @@ public class FoodDeliveryManager : MonoBehaviour
             : (Camera.main != null ? Camera.main.transform.position : Vector3.zero);
 
         return Vector3.Distance(playerPos, CurrentDestination.transform.position);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  GESTIÓN DE VAPOR DE COMIDA (GAME FEEL & ESTADO VISUAL)
+    // ──────────────────────────────────────────────────────────────────────
+
+    public void ExtinguishFoodSteam()
+    {
+        PickableItem[] items = Object.FindObjectsByType<PickableItem>();
+        for (int i = 0; i < items.Length; i++)
+        {
+            if (items[i] != null && items[i].isDeliverableFood && !items[i].IsDelivered)
+            {
+                items[i].SetSteamEmission(false);
+            }
+        }
+    }
+
+    public void RestoreFoodSteam()
+    {
+        PickableItem[] items = Object.FindObjectsByType<PickableItem>();
+        for (int i = 0; i < items.Length; i++)
+        {
+            if (items[i] != null && items[i].isDeliverableFood && !items[i].IsDelivered)
+            {
+                items[i].SetSteamEmission(true);
+            }
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  AUDIO PROCEDURAL Y EFECTOS DE TENSIÓN CONTRARRELOJ
+    // ──────────────────────────────────────────────────────────────────────
+
+    public void PlayCriticalTickSound()
+    {
+        if (audioSource == null) return;
+        AudioClip clip = criticalTickClip != null ? criticalTickClip : GetOrCreateProceduralTickClip();
+        audioSource.PlayOneShot(clip, 0.75f);
+    }
+
+    public void PlaySpeedBonusSound()
+    {
+        if (audioSource == null) return;
+        AudioClip clip = speedBonusClip != null ? speedBonusClip : GetOrCreateProceduralBonusClip();
+        audioSource.PlayOneShot(clip, 0.9f);
+    }
+
+    public void PlayOrderExpiredSound()
+    {
+        if (audioSource == null) return;
+        AudioClip clip = orderExpiredClip != null ? orderExpiredClip : GetOrCreateProceduralExpiredClip();
+        audioSource.PlayOneShot(clip, 0.85f);
+    }
+
+    private static AudioClip GetOrCreateProceduralTickClip()
+    {
+        if (proceduralTickClip != null) return proceduralTickClip;
+
+        int sampleRate = 44100;
+        int sampleCount = Mathf.RoundToInt(sampleRate * 0.045f);
+        float[] samples = new float[sampleCount];
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = (float)i / sampleRate;
+            float envelope = Mathf.Exp(-t * 90f);
+            float wave = Mathf.Sin(2f * Mathf.PI * 1350f * t);
+            samples[i] = wave * envelope * 0.45f;
+        }
+
+        proceduralTickClip = AudioClip.Create("TickProcedural", sampleCount, 1, sampleRate, false);
+        proceduralTickClip.SetData(samples, 0);
+        return proceduralTickClip;
+    }
+
+    private static AudioClip GetOrCreateProceduralBonusClip()
+    {
+        if (proceduralBonusClip != null) return proceduralBonusClip;
+
+        int sampleRate = 44100;
+        float duration = 0.32f;
+        int sampleCount = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[sampleCount];
+
+        float[] freqs = { 784f, 1046.5f, 1318.5f }; // G5, C6, E6
+        float noteDur = duration / freqs.Length;
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = (float)i / sampleRate;
+            int idx = Mathf.Clamp(Mathf.FloorToInt(t / noteDur), 0, freqs.Length - 1);
+            float noteT = t - (idx * noteDur);
+            float env = Mathf.Exp(-noteT * 18f);
+            float wave = Mathf.Sin(2f * Mathf.PI * freqs[idx] * t) * 0.6f + Mathf.Sin(4f * Mathf.PI * freqs[idx] * t) * 0.2f;
+            samples[i] = wave * env * 0.45f;
+        }
+
+        proceduralBonusClip = AudioClip.Create("BonusProcedural", sampleCount, 1, sampleRate, false);
+        proceduralBonusClip.SetData(samples, 0);
+        return proceduralBonusClip;
+    }
+
+    private static AudioClip GetOrCreateProceduralExpiredClip()
+    {
+        if (proceduralExpiredClip != null) return proceduralExpiredClip;
+
+        int sampleRate = 44100;
+        float duration = 0.38f;
+        int sampleCount = Mathf.RoundToInt(sampleRate * duration);
+        float[] samples = new float[sampleCount];
+
+        float[] freqs = { 311.13f, 246.94f }; // Eb4 a B3 triste
+        float noteDur = duration / freqs.Length;
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = (float)i / sampleRate;
+            int idx = Mathf.Clamp(Mathf.FloorToInt(t / noteDur), 0, freqs.Length - 1);
+            float noteT = t - (idx * noteDur);
+            float env = Mathf.Exp(-noteT * 8f);
+            float wave = Mathf.Sin(2f * Mathf.PI * freqs[idx] * t) * 0.7f;
+            samples[i] = wave * env * 0.45f;
+        }
+
+        proceduralExpiredClip = AudioClip.Create("ExpiredProcedural", sampleCount, 1, sampleRate, false);
+        proceduralExpiredClip.SetData(samples, 0);
+        return proceduralExpiredClip;
     }
 }

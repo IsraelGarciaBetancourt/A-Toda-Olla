@@ -20,10 +20,14 @@ public class VehicleUpgradeManager : MonoBehaviour
     [Tooltip("VehicleController al que se aplican las mejoras. Se busca automáticamente si está vacío.")]
     public VehicleController vehicleController;
 
+    [Header("Configuración de Pruebas / Editor")]
+    [Tooltip("Si está activo, al dar Play en el Editor las mejoras se reinician a nivel 0 para iniciar una partida de prueba limpia. En compilaciones (builds) siempre se conservan.")]
+    public bool resetOnPlayInEditor = true;
+
     // ── Claves de persistencia ──────────────────────────────────────────
-    private const string PREF_KEY_WHEELS  = "UpgradeLevel_Wheels";
-    private const string PREF_KEY_ENGINE  = "UpgradeLevel_Engine";
-    private const string PREF_KEY_THERMAL = "UpgradeLevel_Thermal";
+    public const string PREF_KEY_WHEELS  = "UpgradeLevel_Wheels";
+    public const string PREF_KEY_ENGINE  = "UpgradeLevel_Engine";
+    public const string PREF_KEY_THERMAL = "UpgradeLevel_Thermal";
 
     // ── Niveles actuales (0 = stock, 3 = full upgrade) ──────────────────
     private int wheelLevel   = 0;
@@ -66,6 +70,15 @@ public class VehicleUpgradeManager : MonoBehaviour
             Debug.LogWarning("[VehicleUpgradeManager] No se encontró VehicleController en la escena.");
         }
 
+#if UNITY_EDITOR
+        if (resetOnPlayInEditor)
+        {
+            ResetAllUpgrades();
+            Debug.Log("[VehicleUpgradeManager] 🧪 Modo Editor: 'resetOnPlayInEditor' activo. Mejoras reiniciadas a nivel 0 para pruebas.");
+            return;
+        }
+#endif
+
         // Cargar progreso guardado desde PlayerPrefs
         LoadUpgrades();
 
@@ -94,7 +107,10 @@ public class VehicleUpgradeManager : MonoBehaviour
         wheelLevel   = 0;
         engineLevel  = 0;
         thermalLevel = 0;
-        SaveUpgrades();
+        PlayerPrefs.DeleteKey(PREF_KEY_WHEELS);
+        PlayerPrefs.DeleteKey(PREF_KEY_ENGINE);
+        PlayerPrefs.DeleteKey(PREF_KEY_THERMAL);
+        PlayerPrefs.Save();
         ApplyAllUpgrades();
         OnUpgradeChanged?.Invoke();
         Debug.Log("[VehicleUpgradeManager] 🔄 Mejoras reiniciadas a nivel 0.");
