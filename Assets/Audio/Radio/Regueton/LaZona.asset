@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9f0260cefacf24f07a713391f6342a5e, type: 3}
-  m_Name: Nueva Q
+  m_Name: LaZona
   m_EditorClassIdentifier: Assembly-CSharp::RadioStation
-  stationName: Nueva Q
+  stationName: La Zona
   stationColor: {r: 1, g: 0.85, b: 0.2, a: 1}
   tracks:
-  - {fileID: 8300000, guid: 7068ee7d85ac64419b0e9ab27ca524e8, type: 3}
+  - {fileID: 8300000, guid: 27ef83edd8954481f8671c1de57b31b2, type: 3}
   isSilent: 0

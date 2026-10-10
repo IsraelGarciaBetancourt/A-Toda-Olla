@@ -31123,9 +31123,9 @@ RectTransform:
   - {fileID: 1127172126}
   - {fileID: 1503396133}
   - {fileID: 1826780043}
-  - {fileID: 2099475802}
   - {fileID: 1147260199}
   - {fileID: 1804490566}
+  - {fileID: 2099475802}
   - {fileID: 910778797}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -35963,7 +35963,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: cee06306f45354823b9dd3405755d958, type: 2}
   - {fileID: 11400000, guid: 813595822cfad4e96bed1b85f9e1d36f, type: 2}
   - {fileID: 11400000, guid: 430c249a30af945c0b76a69e4e064c7f, type: 2}
-  - {fileID: 11400000, guid: c7f1da1dd10044ce3b815535e027c7d6, type: 2}
+  - {fileID: 11400000, guid: 3d5ede96c820643fb84fc832b0556aba, type: 2}
+  - {fileID: 11400000, guid: 09295f97bb7034921822ad7aaf74b867, type: 2}
   startStationIndex: 0
   randomizeInitialOffset: 0
   volume: 0.8

@@ -10,10 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9f0260cefacf24f07a713391f6342a5e, type: 3}
-  m_Name: Panamericana
+  m_Name: Nueva Q
   m_EditorClassIdentifier: Assembly-CSharp::RadioStation
-  stationName: Radio Panamericana
+  stationName: Nueva Q
   stationColor: {r: 1, g: 0.85, b: 0.2, a: 1}
   tracks:
-  - {fileID: 8300000, guid: 05c0ce5b6f9a34dfa8ec3edcdfe4ec6c, type: 3}
+  - {fileID: 8300000, guid: e83982fc201bc44c59fd415202f44513, type: 3}
+  - {fileID: 8300000, guid: 9a520154ccc5641059f8b57c4b5f655a, type: 3}
   isSilent: 0

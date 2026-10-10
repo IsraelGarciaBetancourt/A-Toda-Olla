@@ -10,10 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9f0260cefacf24f07a713391f6342a5e, type: 3}
-  m_Name: La Karibena
+  m_Name: Panamericana
   m_EditorClassIdentifier: Assembly-CSharp::RadioStation
-  stationName: La Karibena
+  stationName: Radio Panamericana
   stationColor: {r: 1, g: 0.85, b: 0.2, a: 1}
   tracks:
-  - {fileID: 8300000, guid: 84aff5fcfe0754473831b15d1ee007e7, type: 3}
+  - {fileID: 8300000, guid: 1c703580c6072452296a77a0753717b6, type: 3}
+  - {fileID: 8300000, guid: c304213aceb2744a2abc571072df9325, type: 3}
+  - {fileID: 8300000, guid: 9d3a7767f987448968113839563d51d9, type: 3}
+  - {fileID: 8300000, guid: 3285f8fceab6a438fafef90daf4d20c1, type: 3}
   isSilent: 0
